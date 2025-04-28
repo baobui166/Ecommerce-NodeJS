@@ -8,7 +8,7 @@ const COLECTION_NAME = "ApiKeys"
 var keyTokenSchema = new Schema(
   {
     key: {
-      type: Schema.Types.ObjectId,
+      type: String,
       required: true,
       unique: true
     },
