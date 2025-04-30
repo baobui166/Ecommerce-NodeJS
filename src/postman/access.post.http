@@ -9,4 +9,14 @@ x-api-key: f8a9c541a1fe0ef5b94633b64b64ae11f8f2e778fd32016a
 	"name": "Shop java",
 	"email": "buichibao06667774444@gmail.com",
 	"password": "123"
+}
+
+### login
+POST {{url_dev}}/shop/login
+Content-Type:  application/json
+x-api-key: f8a9c541a1fe0ef5b94633b64b64ae11f8f2e778fd32016a
+
+{
+	"email": "buichibao06667774444@gmail.com",
+	"password": "123"
 }	
