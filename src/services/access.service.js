@@ -4,9 +4,13 @@ const shopModel = require("../model/shop.model")
 const bcrypt = require("bcrypt")
 const crypto = require("crypto")
 const KeyTokenService = require("./ketToken.service")
-const { createTokenPair } = require("../auth/authUtils")
+const { createTokenPair, verifyToken } = require("../auth/authUtils")
 const { getInfoData } = require("../utils")
-const { BadRequestError, AuthFailureError } = require("../core/error.response")
+const {
+  BadRequestError,
+  AuthFailureError,
+  ForbiddenError
+} = require("../core/error.response")
 const { findEmail } = require("./shop.service")
 const keytokenModel = require("../model/keytoken.model")
 
@@ -128,6 +132,66 @@ class AccessService {
     const delKey = await KeyTokenService.removeKeyById(keyStore._id)
     console.log(delKey)
     return delKey
+  }
+
+  /*
+  check this token used?
+  */
+
+  static handleRefreshToken = async (refreshToken) => {
+    const foundToken = await KeyTokenService.findByRefreshTokenUsed(
+      refreshToken
+    )
+
+    console.log("refreshToken in AccessService: ", refreshToken)
+
+    if (foundToken) {
+      //decode
+      const { userId, email } = await verifyToken(
+        refreshToken,
+        foundToken.privateKey
+      )
+      // delete all token in KeyStore
+      await KeyTokenService.deleteKeyById(userId)
+      throw new ForbiddenError("Something wrong happend")
+    }
+
+    const holderToken = await KeyTokenService.findByRefreshToken(refreshToken)
+
+    console.log("hoderToken in service", holderToken)
+    if (!holderToken) throw new AuthFailureError("Shop not registered 1")
+
+    //verify token
+
+    const { userId, email } = await verifyToken(
+      refreshToken,
+      holderToken.privateKey
+    )
+
+    const foundShop = await findEmail({ email })
+    if (!foundShop) throw new AuthFailureError("Shop not registered 2")
+
+    // create new token
+    const tokens = await createTokenPair(
+      { userId, email },
+      holderToken.publicKey,
+      holderToken.privateKey
+    )
+
+    //update token
+    await holderToken.updateOne({
+      $set: {
+        refreshToken: tokens.refreshToken
+      },
+      $addToSet: {
+        refreshTokensUsed: refreshToken
+      }
+    })
+
+    return {
+      user: { userId, email },
+      tokens
+    }
   }
 }
 
