@@ -20,3 +20,10 @@ x-api-key: f8a9c541a1fe0ef5b94633b64b64ae11f8f2e778fd32016a
 	"email": "buichibao06667774444@gmail.com",
 	"password": "123"
 }	
+
+### logout
+POST {{url_dev}}/shop/logout
+Content-Type:  application/json
+x-api-key: f8a9c541a1fe0ef5b94633b64b64ae11f8f2e778fd32016a
+x-client-id: 680f88809169cca1b2783d11
+authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODBmODg4MDkxNjljY2ExYjI3ODNkMTEiLCJlbWFpbCI6ImJ1aWNoaWJhbzA2NjY3Nzc0NDQ0QGdtYWlsLmNvbSIsImlhdCI6MTc0NjE5MTcwOSwiZXhwIjoxNzQ2MzY0NTA5fQ.0H0quQzjDUUcu5QzZAfMsLGzDMzMT5YrFsmcFdizOE8
