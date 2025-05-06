@@ -7,9 +7,16 @@ const {
   electronic,
   furniture
 } = require("../model/product.model")
+const {
+  findAllDraftsForShop,
+  publishProductByShop,
+  findAllPublishForShop,
+  unpublishProductByShop,
+  searchProduct
+} = require("../model/repositories/product.repo")
 
 // define Factory class to create product
-class ProductFactory {
+class ProductFactoryV2 {
   /*
 	type: "Clothing",
 	payload
@@ -18,15 +25,37 @@ class ProductFactory {
   static productRegistry = {}
 
   static registerProductType(type, classRef) {
-    ProductFactory.productRegistry[type] = classRef
+    ProductFactoryV2.productRegistry[type] = classRef
   }
 
   static async createProduct(type, payload) {
-    const productClass = ProductFactory.productRegistry[type]
+    const productClass = ProductFactoryV2.productRegistry[type]
 
     if (!productClass) throw new BadRequestError("Invalid product type ", type)
 
     return new productClass(payload).createProduct()
+  }
+
+  static async findAllDraftsForShop({ product_shop, limit = 50, skip = 0 }) {
+    const query = { product_shop, isDraft: true }
+    return await findAllDraftsForShop({ query, limit, skip })
+  }
+
+  ///PUT
+  static async publishProductByShop({ product_shop, product_id }) {
+    return await publishProductByShop({ product_shop, product_id })
+  }
+
+  static async unpublishProductByShop({ product_shop, product_id }) {
+    return await unpublishProductByShop({ product_shop, product_id })
+  }
+
+  static async findAllPublishForShop({ product_shop, limit = 50, skip = 0 }) {
+    const query = { product_shop, isPublish: true }
+    return await findAllPublishForShop({ query, limit, skip })
+  }
+  static async searchProduct({ keySearch }) {
+    return await searchProduct({ keySearch })
   }
 }
 
@@ -109,8 +138,8 @@ class Furniture extends Product {
 }
 
 //register product types
-ProductFactory.registerProductType("Electronics", Electronic)
-ProductFactory.registerProductType("Clothing", Clothing)
-ProductFactory.registerProductType("Furniture", Furniture)
+ProductFactoryV2.registerProductType("Electronics", Electronic)
+ProductFactoryV2.registerProductType("Clothing", Clothing)
+ProductFactoryV2.registerProductType("Furniture", Furniture)
 
-module.exports = ProductFactory
+module.exports = ProductFactoryV2
