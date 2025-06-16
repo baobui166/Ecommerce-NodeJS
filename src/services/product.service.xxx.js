@@ -12,7 +12,9 @@ const {
   publishProductByShop,
   findAllPublishForShop,
   unpublishProductByShop,
-  searchProduct
+  searchProduct,
+  findAllProducts,
+  findProduct
 } = require("../model/repositories/product.repo")
 
 // define Factory class to create product
@@ -29,6 +31,14 @@ class ProductFactoryV2 {
   }
 
   static async createProduct(type, payload) {
+    const productClass = ProductFactoryV2.productRegistry[type]
+
+    if (!productClass) throw new BadRequestError("Invalid product type ", type)
+
+    return new productClass(payload).createProduct()
+  }
+
+  static async updateProduct(type, payload) {
     const productClass = ProductFactoryV2.productRegistry[type]
 
     if (!productClass) throw new BadRequestError("Invalid product type ", type)
@@ -54,8 +64,28 @@ class ProductFactoryV2 {
     const query = { product_shop, isPublish: true }
     return await findAllPublishForShop({ query, limit, skip })
   }
+
   static async searchProduct({ keySearch }) {
     return await searchProduct({ keySearch })
+  }
+
+  static async findAllProducts({
+    limit = 50,
+    sort = "ctime",
+    page = 1,
+    filter = { isPulished: true }
+  }) {
+    return await findAllProducts({
+      limit,
+      sort,
+      page,
+      filter,
+      select: ["product_name", "product_price", "product_thumb"]
+    })
+  }
+
+  static async findProduct({ product_id }) {
+    return await findProduct({ product_id, unSelect: ["__v"] })
   }
 }
 
@@ -85,6 +115,13 @@ class Product {
   async createProduct(product_id) {
     return await product.create({ ...this, _id: product_id })
   }
+
+  // update product
+  async updateProduct(product_id, bodyUpdate) {
+    return await product.findByIdAndUpdate(product_id, bodyUpdate, {
+      new: true
+    })
+  }
 }
 
 // Define sub-Class for defferent product types Clothing
@@ -100,6 +137,21 @@ class Clothing extends Product {
     if (!newProduct) throw new BadRequestError("create new Product error!!!")
 
     return newProduct
+  }
+
+  async updateProduct(productId) {
+    /*
+      1. remove attr has null or undefined
+      2. what attr we will update
+    */
+    const objectParam = this
+    if (objectParam.product_attributes) {
+      // update child
+      await clothing.findByIdAndUpdate(productId, objectParam, { new: true })
+    }
+
+    const updateProduct = await super.updateProduct(productId, objectParam)
+    return updateProduct
   }
 }
 
