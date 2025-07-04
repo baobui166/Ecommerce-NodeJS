@@ -7,6 +7,7 @@ const {
   electronic,
   furniture
 } = require("../model/product.model")
+const { insertInventory } = require("../model/repositories/invetory.repo")
 const {
   findAllDraftsForShop,
   publishProductByShop,
@@ -14,8 +15,10 @@ const {
   unpublishProductByShop,
   searchProduct,
   findAllProducts,
-  findProduct
+  findProduct,
+  updateProductById
 } = require("../model/repositories/product.repo")
+const { removeUndefinedObject, updateNestedObject } = require("../utils")
 
 // define Factory class to create product
 class ProductFactoryV2 {
@@ -38,12 +41,12 @@ class ProductFactoryV2 {
     return new productClass(payload).createProduct()
   }
 
-  static async updateProduct(type, payload) {
+  static async updateProduct(type, productId, payload) {
     const productClass = ProductFactoryV2.productRegistry[type]
 
     if (!productClass) throw new BadRequestError("Invalid product type ", type)
 
-    return new productClass(payload).createProduct()
+    return new productClass(payload).updateProduct(productId)
   }
 
   static async findAllDraftsForShop({ product_shop, limit = 50, skip = 0 }) {
@@ -113,14 +116,22 @@ class Product {
 
   //create new product
   async createProduct(product_id) {
-    return await product.create({ ...this, _id: product_id })
+    const newProduct = product.create({ ...this, _id: product_id })
+
+    if (newProduct) {
+      await insertInventory({
+        product_id: newProduct._id,
+        shopId: this.product_shop,
+        stock: this.product_quantity
+      })
+    }
+
+    return newProduct
   }
 
   // update product
   async updateProduct(product_id, bodyUpdate) {
-    return await product.findByIdAndUpdate(product_id, bodyUpdate, {
-      new: true
-    })
+    return await updateProductById({ product_id, bodyUpdate, model: product })
   }
 }
 
@@ -144,13 +155,20 @@ class Clothing extends Product {
       1. remove attr has null or undefined
       2. what attr we will update
     */
-    const objectParam = this
+    const objectParam = removeUndefinedObject(this)
     if (objectParam.product_attributes) {
       // update child
-      await clothing.findByIdAndUpdate(productId, objectParam, { new: true })
+      await updateProductById({
+        productId,
+        bodyUpdate: updateNestedObject(objectParam.product_attributes),
+        model: clothing
+      })
     }
 
-    const updateProduct = await super.updateProduct(productId, objectParam)
+    const updateProduct = await super.updateProduct(
+      productId,
+      updateNestedObject(objectParam)
+    )
     return updateProduct
   }
 }
