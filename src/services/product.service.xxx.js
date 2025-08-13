@@ -76,14 +76,15 @@ class ProductFactoryV2 {
     limit = 50,
     sort = "ctime",
     page = 1,
-    filter = { isPulished: true }
+    filter = { isPulished: true },
+    select = ["product_name", "product_price", "product_thumb", "product_shop"]
   }) {
     return await findAllProducts({
       limit,
       sort,
       page,
       filter,
-      select: ["product_name", "product_price", "product_thumb"]
+      select: select
     })
   }
 
