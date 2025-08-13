@@ -99,6 +99,10 @@ const findAllProducts = async ({ limit, sort, page, filter, select }) => {
   return products
 }
 
+const getProductById = async (productId) => {
+  return await product.findOne({ _id: productId }).lean()
+}
+
 const findProduct = async ({ product_id, unSelect }) => {
   return await product
     .findById(product_id)
@@ -123,5 +127,6 @@ module.exports = {
   searchProduct,
   findAllProducts,
   findProduct,
-  updateProductById
+  updateProductById,
+  getProductById
 }
