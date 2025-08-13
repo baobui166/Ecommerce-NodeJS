@@ -1,7 +1,11 @@
 "use strict"
 
 const { model } = require("mongoose")
-const { getSelectData, unGetSelectData } = require("../../utils")
+const {
+  getSelectData,
+  unGetSelectData,
+  convertToObjectIdMongodb
+} = require("../../utils")
 
 const findAllDiscountCodeUnSelect = async ({
   limit = 50,
@@ -45,7 +49,12 @@ const findAllDiscountCodeSelect = async ({
   return documents
 }
 
+const checkDiscount = async ({ model, filter }) => {
+  return await model.findOne(filter).lean()
+}
+
 module.exports = {
   findAllDiscountCodeUnSelect,
-  findAllDiscountCodeSelect
+  findAllDiscountCodeSelect,
+  checkDiscount
 }
