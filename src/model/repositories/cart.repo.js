@@ -1,10 +1,10 @@
 "use trict"
 
 const { convertToObjectIdMongodb } = require("../../utils")
-const { cart } = require("../cart.model")
+const cartModel = require("../cart.model")
 
 const findCartById = async (cartId) => {
-  return await cart
+  return await cartModel.cart
     .findOne({
       _id: convertToObjectIdMongodb(cartId),
       cart_state: "active"
