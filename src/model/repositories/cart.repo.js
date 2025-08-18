@@ -12,6 +12,17 @@ const findCartById = async (cartId) => {
     .lean()
 }
 
+const findCartByIdAndUserId = async (cartId, userId) => {
+  return await cartModel.cart
+    .findOne({
+      _id: convertToObjectIdMongodb(cartId),
+      cart_state: "active",
+      cart_userId: userId
+    })
+    .lean()
+}
+
 module.exports = {
-  findCartById
+  findCartById,
+  findCartByIdAndUserId
 }
