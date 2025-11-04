@@ -11,5 +11,15 @@ const router = express.Router()
 //router.use(authentication)
 
 router.post("/review", asyncHandler(checkoutController.checkReview))
+router.get("/getOne", asyncHandler(checkoutController.getOneOrderByUser))
+router.get("/getAll", asyncHandler(checkoutController.getAllOrderByUser))
+router.put(
+  "/cancelOrder",
+  asyncHandler(checkoutController.cancellingOrderByUser)
+)
+router.put(
+  "/updateStatus",
+  asyncHandler(checkoutController.changeStatusOrderByAdmin)
+)
 
 module.exports = router
