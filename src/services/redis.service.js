@@ -6,13 +6,6 @@ const { reservationInventory } = require("../model/repositories/invetory.repo")
 
 const redisClient = redis.createClient()
 
-redisClient.on("error", (err) => console.error("Redis Client Error", err))
-
-// Kết nối redis
-;(async () => {
-  await redisClient.connect()
-})()
-
 const acquireLock = async (productId, quantity, cartId) => {
   const key = `lock_v2025_${productId}`
   const retryTime = 10
