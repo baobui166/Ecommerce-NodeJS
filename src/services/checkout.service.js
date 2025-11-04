@@ -1,8 +1,18 @@
 "use strict"
 
 const { BadRequestError, NotFoundError } = require("../core/error.response")
+const cartModel = require("../model/cart.model")
 const orderModel = require("../model/order.model")
-const { findCartById } = require("../model/repositories/cart.repo")
+const {
+  findCartById,
+  findCartByIdAndUserId
+} = require("../model/repositories/cart.repo")
+const {
+  findAllOrderByUserId,
+  findOneOrderByOrderId,
+  cancelOrderStatusByUser,
+  changeOrderStatusByAdmin
+} = require("../model/repositories/order.repo")
 const { checkProductByServer } = require("../model/repositories/product.repo")
 const { getDiscountAmount } = require("./discount.service")
 const { acquireLock, releaseLock } = require("./redis.service")
@@ -41,7 +51,7 @@ class CheckoutService {
   static async checkoutReview({ cartId, userId, shop_order_ids }) {
     // check cartId ton tai khong
     const foundCart = await findCartById(cartId)
-    if (!foundCart) throw new BadRequestError("Cart does not exists!")
+    if (foundCart) throw new BadRequestError("Cart does not exists!")
 
     const checkout_order = {
         totalPrice: 0, // tong tien hang
@@ -151,8 +161,80 @@ class CheckoutService {
     // truong hop: neu thanh cong, thi remove product co trong gio hang
     if (newOrder) {
       // remove product co trong gio hang
+      const productIdsToRemove = shop_order_ids_new.flatMap((order) =>
+        order.item_products.map((item) => item.productId)
+      )
+
+      await cartModel.cart.updateOne(
+        { _id: cartId },
+        {
+          $pull: {
+            cart_products: { productId: { $in: productIdsToRemove } }
+          }
+        }
+      )
     }
     return newOrder
+  }
+
+  /*  
+    1. query order [User]
+  
+  */
+
+  static async getOrderByUser({ cartId, userId }) {
+    const foundCart = await findCartByIdAndUserId(cartId, userId)
+    if (!foundCart) throw new BadRequestError("Cart does not exists")
+
+    return await findAllOrderByUserId(userId)
+  }
+
+  /*    
+    2. query one order using ID [User]
+  
+  */
+
+  static async getOneOrderByUser({ cartId, userId, orderId }) {
+    const foundCart = await findCartByIdAndUserId(cartId, userId)
+    if (!foundCart) throw new BadRequestError("Cart does not exists")
+
+    const foundOrder = await findOneOrderByOrderId(orderId)
+    if (!foundOrder) throw new BadRequestError("Order does not exists")
+
+    return foundOrder
+  }
+
+  /*  
+    1. cancel order [User]
+  */
+
+  static async cancelOrderByUser({
+    cartId,
+    userId,
+    orderId,
+    status = "cancelled"
+  }) {
+    const foundCart = await findCartByIdAndUserId(cartId, userId)
+    if (!foundCart) throw new BadRequestError("Cart does not exists")
+
+    const foundOrder = await findOneOrderByOrderId(orderId)
+    if (!foundOrder) throw new BadRequestError("Order does not exists")
+
+    return await cancelOrderStatusByUser(userId, orderId, status)
+  }
+
+  /*  
+    1. updating Order status [Shop | Admin] 
+  */
+
+  static async updateOrderStatusByShop({ shopId, orderId, status }) {
+    const foundCart = await findCartByIdAndUserId(cartId, userId)
+    if (!foundCart) throw new BadRequestError("Cart does not exists")
+
+    const foundOrder = await findOneOrderByOrderId(orderId)
+    if (!foundOrder) throw new BadRequestError("Order does not exists")
+
+    return await changeOrderStatusByAdmin(userId, orderId, status, shopId)
   }
 }
 
