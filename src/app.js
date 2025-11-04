@@ -13,6 +13,12 @@ app.use(compression())
 app.use(express.json())
 app.use(express.urlencoded({ extends: true }))
 
+// init test
+
+// require("./test/inventory.test")
+// const productTest = require("./test/product.test")
+// productTest.purchaseProduct("productID:1001", 10)
+
 //init db
 require("./dbs/init.mongodb")
 overLoad()
