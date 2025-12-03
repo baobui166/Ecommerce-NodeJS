@@ -77,10 +77,10 @@ const uploadFromLocalS3 = async ({ file }) => {
       Key: imageName,
     });
 
-    // export url s3 with cloudfront (no)
+    // export url s3 with cloudfront (no key)
     //const url = await getSignedUrl(s3, singleUrl, { expiresIn: 3600 });
 
-    // export url s3 with cloudfront (no)
+    // export url s3 with cloudfront (have key)
     const url = getSignedUrl({
       url: `${urlImagePublic}/${imageName}`,
       keyPairId: process.env.PUBLIC_KEY_CLOUDFRONT,
