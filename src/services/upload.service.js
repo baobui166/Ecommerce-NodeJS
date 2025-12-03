@@ -7,8 +7,10 @@ const {
   GetObjectCommand,
   DeleteObjectCommand,
 } = require("../config/s3.config");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+//const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { getSignedUrl } = require("@aws-sdk/cloudfront-signer");
 const { randomImgaeName } = require("../utils");
+const urlImagePublic = `https://d3h6nq0mnsctu8.cloudfront.net`;
 
 // 1. upload  from url image
 
@@ -61,6 +63,7 @@ const uploadImageFromLocal = async ({ path, folderName = "product/8049" }) => {
 const uploadFromLocalS3 = async ({ file }) => {
   try {
     const imageName = randomImgaeName();
+    const privateKey = process.env.PRIVATE_KEY_CLOUDFRONT.replace(/\\n/g, "\n");
 
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME_S3,
@@ -74,8 +77,16 @@ const uploadFromLocalS3 = async ({ file }) => {
       Key: imageName,
     });
 
-    // export url
-    const url = await getSignedUrl(s3, singleUrl, { expiresIn: 3600 });
+    // export url s3 with cloudfront (no)
+    //const url = await getSignedUrl(s3, singleUrl, { expiresIn: 3600 });
+
+    // export url s3 with cloudfront (no)
+    const url = getSignedUrl({
+      url: `${urlImagePublic}/${imageName}`,
+      keyPairId: process.env.PUBLIC_KEY_CLOUDFRONT,
+      dateLessThan: new Date(Date.now() + 1000 * 60),
+      privateKey,
+    });
 
     const result = await s3.send(command);
 
@@ -83,7 +94,10 @@ const uploadFromLocalS3 = async ({ file }) => {
     console.log("URL:::", url);
 
     //return result;
-    return url;
+    return {
+      url,
+      result,
+    };
   } catch (error) {
     console.log(`Failed upload image into s3`, error);
   }
