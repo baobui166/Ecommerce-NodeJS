@@ -1,8 +1,14 @@
 "use strict";
 
 const cloudinary = require("../config/cloudinary.config");
-const { s3, PutObjectCommand } = require("../config/s3.config");
-const crypto = require("crypto");
+const {
+  s3,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} = require("../config/s3.config");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { randomImgaeName } = require("../utils");
 
 // 1. upload  from url image
 
@@ -54,25 +60,30 @@ const uploadImageFromLocal = async ({ path, folderName = "product/8049" }) => {
 ////// upload file use s3 amazon
 const uploadFromLocalS3 = async ({ file }) => {
   try {
-    const randomImgaeName = () => crypto.randomBytes(16).toString("hex");
-
-    console.log("=== DEBUG S3 UPLOAD ===");
-    console.log("Bucket:", process.env.AWS_BUCKET_NAME_S3);
-    console.log("AccessKey:", process.env.ACCESS_KEY_SHOPDEV_S3);
-    console.log("SecretKey:", process.env.SECRET_KEY_SHOPDEV_S3);
-    console.log("File originalname:", file?.originalname);
-    console.log("Buffer length:", file?.buffer?.length);
+    const imageName = randomImgaeName();
 
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME_S3,
-      Key: randomImgaeName || "unknown",
+      Key: imageName,
       Body: file.buffer,
       ContentType: "image/jpeg", // that is you need
     });
 
+    const singleUrl = new GetObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME_S3,
+      Key: imageName,
+    });
+
+    // export url
+    const url = await getSignedUrl(s3, singleUrl, { expiresIn: 3600 });
+
     const result = await s3.send(command);
 
-    return result;
+    console.log("Result:::", result);
+    console.log("URL:::", url);
+
+    //return result;
+    return url;
   } catch (error) {
     console.log(`Failed upload image into s3`, error);
   }

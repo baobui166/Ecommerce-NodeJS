@@ -1,32 +1,33 @@
-"use strict"
+"use strict";
 
-const _ = require("lodash")
-const { Types } = require("mongoose")
+const _ = require("lodash");
+const { Types } = require("mongoose");
+const crypto = require("crypto");
 
 const getInfoData = ({ fields = [], object = {} }) => {
-  return _.pick(object, fields)
-}
+  return _.pick(object, fields);
+};
 
 // [a,b] = {a:1, b:1}
 const getSelectData = (select = []) => {
-  return Object.fromEntries(select.map((el) => [el, 1]))
-}
+  return Object.fromEntries(select.map((el) => [el, 1]));
+};
 
 // [a,b] = {a:0, b:0}
 const unGetSelectData = (select = []) => {
-  return Object.fromEntries(select.map((el) => [el, 0]))
-}
+  return Object.fromEntries(select.map((el) => [el, 0]));
+};
 
 //remove undefined Object
 const removeUndefinedObject = (obj) => {
   Object.keys(obj).forEach((k) => {
     if (obj[k] == null) {
-      delete obj[k]
+      delete obj[k];
     }
-  })
+  });
 
-  return obj
-}
+  return obj;
+};
 
 /*
  const data = {
@@ -45,32 +46,34 @@ const removeUndefinedObject = (obj) => {
   
  */
 const updateNestedObject = (obj) => {
-  const final = {}
+  const final = {};
 
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
     // Nếu obj không phải object hoặc là mảng hoặc null thì trả về rỗng
-    return final
+    return final;
   }
 
   Object.keys(obj).forEach((k) => {
-    const value = obj[k]
+    const value = obj[k];
 
     if (value && typeof value === "object" && !Array.isArray(value)) {
       // Nếu value là object con, đệ quy xử lý
-      const nested = updateNestedObject(value)
+      const nested = updateNestedObject(value);
       Object.keys(nested).forEach((nestedKey) => {
-        final[`${k}.${nestedKey}`] = nested[nestedKey]
-      })
+        final[`${k}.${nestedKey}`] = nested[nestedKey];
+      });
     } else {
       // Nếu value là giá trị nguyên thủy hoặc mảng, gán trực tiếp
-      final[k] = value
+      final[k] = value;
     }
-  })
+  });
 
-  return final
-}
+  return final;
+};
 
-const convertToObjectIdMongodb = (id) => new Types.ObjectId(id)
+const convertToObjectIdMongodb = (id) => new Types.ObjectId(id);
+
+const randomImgaeName = () => crypto.randomBytes(16).toString("hex");
 
 module.exports = {
   getInfoData,
@@ -78,5 +81,6 @@ module.exports = {
   unGetSelectData,
   removeUndefinedObject,
   updateNestedObject,
-  convertToObjectIdMongodb
-}
+  convertToObjectIdMongodb,
+  randomImgaeName,
+};
