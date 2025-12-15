@@ -2,8 +2,8 @@
 
 const { model, Schema } = require("mongoose");
 
-const DOCUMENT_NAME = "Resource";
-const COLLECTION_NAME = "Resources";
+const DOCUMENT_NAME = "Role";
+const COLLECTION_NAME = "Roles";
 
 // exmaple grant
 // grantsList
@@ -38,7 +38,7 @@ const roleSchema = new Schema(
     },
     role_grants: [
       {
-        resrource: {
+        resource: {
           type: Schema.Types.ObjectId,
           ref: "Resource",
           required: true,
