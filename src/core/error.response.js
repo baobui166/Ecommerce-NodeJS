@@ -1,20 +1,31 @@
-"use strict"
+"use strict";
 
-const { ReasonPhrases, StatusCodes } = require("../utils/httpStatusCode")
+const myLogger = require("../loggers/myLogger.log");
+const { ReasonPhrases, StatusCodes } = require("../utils/httpStatusCode");
 
 const StatusCode = {
   FORBIDDEN: 403,
-  CONFLICT: 409
-}
+  CONFLICT: 409,
+};
 
 const ReasonStatusCode = {
   FORBIDDEN: "Bad request error",
-  CONFLICT: "Conflict error"
-}
+  CONFLICT: "Conflict error",
+};
+
 class ErrorResponse extends Error {
   constructor(message, status) {
-    super(message)
-    this.status = status
+    super(message);
+    this.status = status;
+
+    // log the error use winston
+    // logger.error(`${this.status} - ${this.message})
+
+    myLogger.error(this.message, {
+      context: "/path",
+      requestId: "UUUAAA",
+      metadata: {},
+    });
   }
 }
 
@@ -23,7 +34,7 @@ class ConflictRequestError extends ErrorResponse {
     message = ReasonStatusCode.CONFLICT,
     statusCode = StatusCode.FORBIDDEN
   ) {
-    super(message, statusCode)
+    super(message, statusCode);
   }
 }
 
@@ -32,7 +43,7 @@ class BadRequestError extends ErrorResponse {
     message = ReasonStatusCode.CONFLICT,
     statusCode = StatusCode.FORBIDDEN
   ) {
-    super(message, statusCode)
+    super(message, statusCode);
   }
 }
 
@@ -41,7 +52,7 @@ class AuthFailureError extends ErrorResponse {
     message = ReasonPhrases.UNAUTHORIZED,
     statusCode = StatusCodes.UNAUTHORIZED
   ) {
-    super(message, statusCode)
+    super(message, statusCode);
   }
 }
 
@@ -50,7 +61,7 @@ class NotFoundError extends ErrorResponse {
     message = ReasonPhrases.NOT_FOUND,
     statusCode = StatusCodes.NOT_FOUND
   ) {
-    super(message, statusCode)
+    super(message, statusCode);
   }
 }
 
@@ -59,7 +70,7 @@ class ForbiddenError extends ErrorResponse {
     message = ReasonPhrases.FORBIDDEN,
     statusCode = StatusCodes.FORBIDDEN
   ) {
-    super(message, statusCode)
+    super(message, statusCode);
   }
 }
 module.exports = {
@@ -67,5 +78,5 @@ module.exports = {
   BadRequestError,
   AuthFailureError,
   NotFoundError,
-  ForbiddenError
-}
+  ForbiddenError,
+};
