@@ -1,4 +1,4 @@
-# Node Tip JavaScript - Backend E-Commerce API
+# Ecommerce NodeJS
 
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express-5.1.0-blue.svg)](https://expressjs.com/)
