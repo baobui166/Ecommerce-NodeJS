@@ -1,0 +1,4 @@
+2026-03-13 16:08:38::info::/v1/api/email/new_user::c4f485c3-1a33-42b1-af38-606497fd4ee9::input params:: GET::::{}
+2026-03-13 16:08:38::error::/v1/api/email/new_user::04f93ff4-fa0a-4239-b5a8-18db73379690::404 - 1773392918157ms - Response: {"status":404}::{"message":"Not Found!!!"}
+2026-03-13 16:08:44::info::/v1/api/email/new_user::1e766c03-6d74-4b57-aede-c0cc78d80872::input params:: GET::::{}
+2026-03-13 16:08:44::error::/v1/api/email/new_user::2cfac287-b43b-4ac8-88e8-9304fb78c91b::404 - 1773392924988ms - Response: {"status":404}::{"message":"Not Found!!!"}

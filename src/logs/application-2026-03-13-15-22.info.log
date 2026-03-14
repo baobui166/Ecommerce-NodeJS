@@ -1,0 +1,3 @@
+2026-03-13 15:22:24::info::/v1/api/email/new_template::3cbf3cc0-abd2-4656-a7cd-82ca3b47344c::input params:: GET::::{}
+2026-03-13 15:22:24::error::/v1/api/email/new_template::bde5df95-38d3-4c09-96f1-ac5bfb1270bd::404 - 1773390144353ms - Response: {"status":404}::{"message":"Not Found!!!"}
+2026-03-13 15:22:37::info::/v1/api/email/new_template::b9ca1a5e-5a2d-4a7e-bb7f-5f51275ae513::input params:: POST::::{"tem_name":"HTML EMAIL TOKEN","tem_id":111}
