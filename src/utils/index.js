@@ -75,6 +75,15 @@ const convertToObjectIdMongodb = (id) => new Types.ObjectId(id);
 
 const randomImgaeName = () => crypto.randomBytes(16).toString("hex");
 
+const replacePlacehoder = (template, params) => {
+  Object.keys(params).forEach((k) => {
+    const placeholder = `{{${k}}}`; // verify
+    template = template.replace(new RegExp(placeholder, "g"), params[k]);
+  });
+
+  return template;
+};
+
 module.exports = {
   getInfoData,
   getSelectData,
@@ -83,4 +92,5 @@ module.exports = {
   updateNestedObject,
   convertToObjectIdMongodb,
   randomImgaeName,
+  replacePlacehoder,
 };
