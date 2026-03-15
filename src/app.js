@@ -35,7 +35,8 @@ app.use((req, res, next) => {
 //init db
 require("./dbs/init.mongodb");
 overLoad();
-
+const initRedis = require("./dbs/init.redis");
+initRedis.initRedis();
 //init route
 app.use("/", require("./routes"));
 // handle error
