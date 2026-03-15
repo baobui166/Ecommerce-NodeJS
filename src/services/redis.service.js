@@ -1,47 +1,52 @@
-"use strict"
+"use strict";
 
-const redis = require("redis")
-const { setTimeout } = require("timers/promises")
-const { reservationInventory } = require("../model/repositories/invetory.repo")
+const { setTimeout } = require("timers/promises");
+const { reservationInventory } = require("../model/repositories/invetory.repo");
+const { getRedis } = require("../dbs/init.redis");
 
-const redisClient = redis.createClient()
+const { instanceConnect: redisClient } = getRedis();
 
 const acquireLock = async (productId, quantity, cartId) => {
-  const key = `lock_v2025_${productId}`
-  const retryTime = 10
-  const expireTime = 3000 // ms
+  const key = `lock_v2025_${productId}`;
+
+  const retryTime = 10;
+  const expireTime = 3000;
 
   for (let i = 0; i < retryTime; i++) {
-    // setNX trả về true nếu set thành công
-    const result = await redisClient.setNX(key, expireTime)
+
+    const result = await redisClient.set(key, "lock", {
+      NX: true,
+      PX: expireTime
+    });
 
     if (result) {
-      // thao tác với inventory
+
       const isReservation = await reservationInventory({
         productId,
         quantity,
         cartId
-      })
+      });
 
       if (isReservation.modifiedCount) {
-        // đặt expire cho key
-        await redisClient.pExpire(key, expireTime)
-        return key
+        return key;
       }
 
-      return null
+      await redisClient.del(key);
+      return null;
+
     } else {
-      // chờ 50ms rồi thử lại
-      await setTimeout(50)
+      await setTimeout(50);
     }
   }
-}
+
+  return null;
+};
 
 const releaseLock = async (keyLock) => {
-  return await redisClient.del(keyLock)
-}
+  return await redisClient.del(keyLock);
+};
 
 module.exports = {
   acquireLock,
   releaseLock
-}
+};
