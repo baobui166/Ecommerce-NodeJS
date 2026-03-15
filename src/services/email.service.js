@@ -21,7 +21,7 @@ const sendEmailToken = async ({ email = null }) => {
 
     // 3. replace placeholder with params
     const content = replacePlacehoder(template.tem_html, {
-      link_verify: `http://localhost:5500/cgp/welcome-back?token=${token.tem_token}`,
+      link_verify: `http://localhost:5500/v1/user/welcome-back?token=${token.tem_token}`,
     });
 
     sendEmailLinkVerify({

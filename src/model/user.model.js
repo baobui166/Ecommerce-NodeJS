@@ -7,7 +7,6 @@ const COLLECTION_NAME = "Users";
 
 const userSchema = new Schema(
   {
-    user_id: { type: Number, required: true },
     user_slug: { type: String, required: true },
     user_name: { type: String, default: "" },
     user_password: { type: String, default: "" },
@@ -27,7 +26,7 @@ const userSchema = new Schema(
   {
     timestamps: true,
     collection: COLLECTION_NAME,
-  }
+  },
 );
 
 module.exports = model(DOCUMENT_NAME, userSchema);

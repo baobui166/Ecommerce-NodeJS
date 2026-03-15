@@ -2,7 +2,7 @@
 
 const { BadRequestError } = require("../core/error.response");
 const { SuccessResponse } = require("../core/success.response");
-const { newUser } = require("../services/user.service");
+const { newUser, checkLoginEmailToken } = require("../services/user.service");
 
 class UserController {
   // new user
@@ -19,8 +19,15 @@ class UserController {
     }).send(res);
   };
 
-  // check user token via email
-  checkRegisterEmailToken = async (req, res, next) => {
+  checkLoginEmailToken = async (req, res, next) => {
+    const { token } = req.query;
+    new SuccessResponse({
+      message: "Check login email token success!!!!",
+      metadata: await checkLoginEmailToken({ token }),
+    }).send(res);
+  };
+
+  upLoadImageFromUrl = async (req, res, next) => {
     new SuccessResponse({
       message: "Upload file success!!!!",
       metadata: await uploadImageFromUrl(),
