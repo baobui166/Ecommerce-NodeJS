@@ -14,12 +14,12 @@ router.post("/product", asyncHandler(uploadController.uploadImage));
 router.post(
   "/product/thumb",
   uploadDisk.single("file"),
-  asyncHandler(uploadController.uploadFileThumb)
+  asyncHandler(uploadController.uploadFileThumb),
 );
 router.post(
   "/product/bucket",
   uploadMemory.single("file"),
-  asyncHandler(uploadController.uploadFileLocalS3)
+  asyncHandler(uploadController.uploadFileLocalS3),
 );
 
 module.exports = router;

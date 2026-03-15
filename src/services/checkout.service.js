@@ -1,21 +1,21 @@
-"use strict"
+"use strict";
 
-const { BadRequestError, NotFoundError } = require("../core/error.response")
-const cartModel = require("../model/cart.model")
-const orderModel = require("../model/order.model")
+const { BadRequestError, NotFoundError } = require("../core/error.response");
+const cartModel = require("../model/cart.model");
+const orderModel = require("../model/order.model");
 const {
   findCartById,
-  findCartByIdAndUserId
-} = require("../model/repositories/cart.repo")
+  findCartByIdAndUserId,
+} = require("../model/repositories/cart.repo");
 const {
   findAllOrderByUserId,
   findOneOrderByOrderId,
   cancelOrderStatusByUser,
-  changeOrderStatusByAdmin
-} = require("../model/repositories/order.repo")
-const { checkProductByServer } = require("../model/repositories/product.repo")
-const { getDiscountAmount } = require("./discount.service")
-const { acquireLock, releaseLock } = require("./redis.service")
+  changeOrderStatusByAdmin,
+} = require("../model/repositories/order.repo");
+const { checkProductByServer } = require("../model/repositories/product.repo");
+const { getDiscountAmount } = require("./discount.service");
+const { acquireLock, releaseLock } = require("./redis.service");
 
 class CheckoutService {
   /*
@@ -50,43 +50,43 @@ class CheckoutService {
 	  */
   static async checkoutReview({ cartId, userId, shop_order_ids }) {
     // check cartId ton tai khong
-    const foundCart = await findCartById(cartId)
-    if (foundCart) throw new BadRequestError("Cart does not exists!")
+    const foundCart = await findCartById(cartId);
+    if (foundCart) throw new BadRequestError("Cart does not exists!");
 
     const checkout_order = {
         totalPrice: 0, // tong tien hang
         feeShip: 0, // phi ship
         totalDiscount: 0,
-        totalCheckout: 0 // tong thanh toan
+        totalCheckout: 0, // tong thanh toan
       },
-      shop_order_ids_new = []
+      shop_order_ids_new = [];
 
     for (let i = 0; i < shop_order_ids.length; i++) {
       const {
         shopId,
         shop_discounts = [],
-        item_products = []
-      } = shop_order_ids[0]
+        item_products = [],
+      } = shop_order_ids[0];
 
       // check product available
-      const checkProductServer = await checkProductByServer(item_products)
-      if (!checkProductServer[0]) throw new BadRequestError("Order wrong!!!")
+      const checkProductServer = await checkProductByServer(item_products);
+      if (!checkProductServer[0]) throw new BadRequestError("Order wrong!!!");
 
       // tong tien don hang
       const checkoutPrice = checkProductServer.reduce((acc, product) => {
-        return acc + product.quantity * product.price
-      }, 0)
+        return acc + product.quantity * product.price;
+      }, 0);
 
       // tong tien khi xu ly
-      checkout_order.totalPrice += checkoutPrice
+      checkout_order.totalPrice += checkoutPrice;
 
       const itemCheckout = {
         shopId,
         shop_discounts,
         priceRaw: checkoutPrice, // tien trc khi giam gias
         priceApplyDiscount: checkoutPrice,
-        item_products: checkProductServer
-      }
+        item_products: checkProductServer,
+      };
 
       // neu shop_discount co ton tai > 0 thi check xem, co hop le hay khong
       if (shop_discounts.length > 0) {
@@ -96,23 +96,23 @@ class CheckoutService {
           codeId: shop_discounts[0].codeId,
           userId,
           shopId,
-          products: checkProductServer
-        })
+          products: checkProductServer,
+        });
         // tong cong discount giam gia
-        checkout_order.totalDiscount += discount
+        checkout_order.totalDiscount += discount;
 
         // neu so tien giam gia lon hon 0
         if (discount > 0) {
-          itemCheckout.priceApplyDiscount = checkoutPrice - discount
+          itemCheckout.priceApplyDiscount = checkoutPrice - discount;
         }
       }
 
       // thanh toan cuoi cung
-      checkout_order.totalCheckout += itemCheckout.priceApplyDiscount
-      shop_order_ids_new.push(itemCheckout)
+      checkout_order.totalCheckout += itemCheckout.priceApplyDiscount;
+      shop_order_ids_new.push(itemCheckout);
     }
 
-    return { shop_order_ids, shop_order_ids_new, checkout_order }
+    return { shop_order_ids, shop_order_ids_new, checkout_order };
   }
 
   // order
@@ -121,33 +121,33 @@ class CheckoutService {
     cartId,
     userId,
     user_address = {},
-    user_payment = {}
+    user_payment = {},
   }) {
     const { shop_order_ids_new, checkout_order } =
       await CheckoutService.checkoutReview({
         cartId,
         userId,
-        shop_order_ids: shop_order_ids
-      })
+        shop_order_ids: shop_order_ids,
+      });
 
     // check lai 1 lan nua xem co vuot kho hay khong
     // get new array
-    const products = shop_order_ids_new.flatMap((order) => order.item_products)
-    const acquireProduct = []
+    const products = shop_order_ids_new.flatMap((order) => order.item_products);
+    const acquireProduct = [];
     for (let i = 0; i < products.length; i++) {
-      const { productId, quantity } = products[i]
-      const keyLock = await acquireLock(productId, quantity, cartId)
-      acquireProduct.push(keyLock ? true : false)
+      const { productId, quantity } = products[i];
+      const keyLock = await acquireLock(productId, quantity, cartId);
+      acquireProduct.push(keyLock ? true : false);
       if (keyLock) {
-        await releaseLock(keyLock)
+        await releaseLock(keyLock);
       }
     }
 
     // check neu co 1 san pham het han trong kho thi sao
     if (acquireProduct.includes(false)) {
       throw new BadRequestError(
-        "Mot so san pham da duoc cap nhat, vui long quay lai gio hang"
-      )
+        "Mot so san pham da duoc cap nhat, vui long quay lai gio hang",
+      );
     }
 
     const newOrder = await orderModel.create({
@@ -155,26 +155,26 @@ class CheckoutService {
       order_checkout: checkout_order,
       order_shipping: user_address,
       order_payment: user_payment,
-      order_products: shop_order_ids_new
-    })
+      order_products: shop_order_ids_new,
+    });
 
     // truong hop: neu thanh cong, thi remove product co trong gio hang
     if (newOrder) {
       // remove product co trong gio hang
       const productIdsToRemove = shop_order_ids_new.flatMap((order) =>
-        order.item_products.map((item) => item.productId)
-      )
+        order.item_products.map((item) => item.productId),
+      );
 
       await cartModel.cart.updateOne(
         { _id: cartId },
         {
           $pull: {
-            cart_products: { productId: { $in: productIdsToRemove } }
-          }
-        }
-      )
+            cart_products: { productId: { $in: productIdsToRemove } },
+          },
+        },
+      );
     }
-    return newOrder
+    return newOrder;
   }
 
   /*  
@@ -183,10 +183,10 @@ class CheckoutService {
   */
 
   static async getOrderByUser({ cartId, userId }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId)
-    if (!foundCart) throw new BadRequestError("Cart does not exists")
+    const foundCart = await findCartByIdAndUserId(cartId, userId);
+    if (!foundCart) throw new BadRequestError("Cart does not exists");
 
-    return await findAllOrderByUserId(userId)
+    return await findAllOrderByUserId(userId);
   }
 
   /*    
@@ -195,13 +195,13 @@ class CheckoutService {
   */
 
   static async getOneOrderByUser({ cartId, userId, orderId }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId)
-    if (!foundCart) throw new BadRequestError("Cart does not exists")
+    const foundCart = await findCartByIdAndUserId(cartId, userId);
+    if (!foundCart) throw new BadRequestError("Cart does not exists");
 
-    const foundOrder = await findOneOrderByOrderId(orderId)
-    if (!foundOrder) throw new BadRequestError("Order does not exists")
+    const foundOrder = await findOneOrderByOrderId(orderId);
+    if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return foundOrder
+    return foundOrder;
   }
 
   /*  
@@ -212,15 +212,15 @@ class CheckoutService {
     cartId,
     userId,
     orderId,
-    status = "cancelled"
+    status = "cancelled",
   }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId)
-    if (!foundCart) throw new BadRequestError("Cart does not exists")
+    const foundCart = await findCartByIdAndUserId(cartId, userId);
+    if (!foundCart) throw new BadRequestError("Cart does not exists");
 
-    const foundOrder = await findOneOrderByOrderId(orderId)
-    if (!foundOrder) throw new BadRequestError("Order does not exists")
+    const foundOrder = await findOneOrderByOrderId(orderId);
+    if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return await cancelOrderStatusByUser(userId, orderId, status)
+    return await cancelOrderStatusByUser(userId, orderId, status);
   }
 
   /*  
@@ -228,14 +228,14 @@ class CheckoutService {
   */
 
   static async updateOrderStatusByShop({ shopId, orderId, status }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId)
-    if (!foundCart) throw new BadRequestError("Cart does not exists")
+    const foundCart = await findCartByIdAndUserId(cartId, userId);
+    if (!foundCart) throw new BadRequestError("Cart does not exists");
 
-    const foundOrder = await findOneOrderByOrderId(orderId)
-    if (!foundOrder) throw new BadRequestError("Order does not exists")
+    const foundOrder = await findOneOrderByOrderId(orderId);
+    if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return await changeOrderStatusByAdmin(userId, orderId, status, shopId)
+    return await changeOrderStatusByAdmin(userId, orderId, status, shopId);
   }
 }
 
-module.exports = CheckoutService
+module.exports = CheckoutService;

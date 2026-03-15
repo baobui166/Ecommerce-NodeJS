@@ -15,7 +15,7 @@ const runConsumer = async () => {
       },
       {
         noAck: true,
-      }
+      },
     );
   } catch (error) {
     console.error(error);

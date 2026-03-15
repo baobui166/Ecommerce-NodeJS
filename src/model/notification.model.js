@@ -27,7 +27,7 @@ const notificationSchema = new Schema(
   {
     collection: COLLECTION_NAME,
     timestamps: true,
-  }
+  },
 );
 
 module.exports = model(DOCUMENT_NAME, notificationSchema);

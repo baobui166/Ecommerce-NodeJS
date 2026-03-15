@@ -1,8 +1,8 @@
-"use strict"
+"use strict";
 
-const { model, Schema } = require("mongoose") // Erase if already required
-const DOCUMENT_NAME = "Discount"
-const COLLECTION_NAME = "Discounts"
+const { model, Schema } = require("mongoose"); // Erase if already required
+const DOCUMENT_NAME = "Discount";
+const COLLECTION_NAME = "Discounts";
 
 // Declare the Schema of the Mongo model
 var discountSchema = new Schema(
@@ -23,20 +23,20 @@ var discountSchema = new Schema(
     discount_shopId: { type: Schema.Types.ObjectId, ref: "Shop" },
     discount_is_active: {
       type: Boolean,
-      required: true
+      required: true,
     },
     discount_applies_to: {
       type: String,
       required: true,
-      enum: ["all", "specific"]
+      enum: ["all", "specific"],
     },
     discount_product_ids: {
       type: Array,
-      default: []
-    }
+      default: [],
+    },
   },
-  { timestamps: true, collection: COLLECTION_NAME }
-)
+  { timestamps: true, collection: COLLECTION_NAME },
+);
 
 // Export the model
-module.exports = model(DOCUMENT_NAME, discountSchema)
+module.exports = model(DOCUMENT_NAME, discountSchema);

@@ -1,14 +1,14 @@
-"use strict"
+"use strict";
 
-const { Types } = require("mongoose")
-const keytokenModel = require("../model/keytoken.model")
+const { Types } = require("mongoose");
+const keytokenModel = require("../model/keytoken.model");
 
 class KeyTokenService {
   static createKeyToken = async ({
     userId,
     publicKey,
     privateKey,
-    refreshToken
+    refreshToken,
   }) => {
     try {
       //lv0
@@ -24,50 +24,50 @@ class KeyTokenService {
           publicKey,
           privateKey,
           refreshTokenUsed: [],
-          refreshToken
+          refreshToken,
         },
-        options = { upsert: true, new: true }
+        options = { upsert: true, new: true };
       const tokens = await keytokenModel.findOneAndUpdate(
         filter,
         update,
-        options
-      )
+        options,
+      );
 
-      return tokens ? tokens.publicKey : null
+      return tokens ? tokens.publicKey : null;
     } catch (error) {
-      return error
+      return error;
     }
-  }
+  };
 
   static findByUserID = async (userId) => {
     const result = await keytokenModel
       .findOne({ user: new Types.ObjectId(userId) })
-      .lean()
+      .lean();
 
-    console.log(result)
+    console.log(result);
 
-    return result
-  }
+    return result;
+  };
 
   static removeKeyById = async (id) => {
     const result = await keytokenModel.deleteOne({
-      _id: new Types.ObjectId(id)
-    })
-    return result
-  }
+      _id: new Types.ObjectId(id),
+    });
+    return result;
+  };
 
   static findByRefreshTokenUsed = async (refreshToken) => {
     return await keytokenModel
       .findOne({ refreshTokensUsed: refreshToken })
-      .lean()
-  }
+      .lean();
+  };
 
   static findByRefreshToken = async (refreshToken) => {
-    return await keytokenModel.findOne({ refreshToken })
-  }
+    return await keytokenModel.findOne({ refreshToken });
+  };
 
   static deleteKeyById = async (userId) => {
-    return await keytokenModel.deleteOne({ user: userId }).lean()
-  }
+    return await keytokenModel.deleteOne({ user: userId }).lean();
+  };
 }
-module.exports = KeyTokenService
+module.exports = KeyTokenService;

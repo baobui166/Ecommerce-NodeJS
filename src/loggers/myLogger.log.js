@@ -9,15 +9,15 @@ class MyLogger {
     const formatPrint = format.printf(
       ({ level, message, context, requestId, timestamp, metadata }) => {
         return `${timestamp}::${level}::${context}::${requestId}::${message}::${JSON.stringify(
-          metadata
+          metadata,
         )}`;
-      }
+      },
     );
 
     this.logger = createLogger({
       format: format.combine(
         format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-        formatPrint
+        formatPrint,
       ),
       transports: [
         new transports.Console(),
@@ -31,7 +31,7 @@ class MyLogger {
           maxFiles: "14d", // will delete log file in 14 days
           format: format.combine(
             format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-            formatPrint
+            formatPrint,
           ),
           level: "info",
         }),
@@ -45,7 +45,7 @@ class MyLogger {
           maxFiles: "14d", // will delete log file in 14 days
           format: format.combine(
             format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-            formatPrint
+            formatPrint,
           ),
           level: "info",
         }),

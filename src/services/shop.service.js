@@ -1,16 +1,16 @@
-"use strict"
+"use strict";
 
-const shopModel = require("../model/shop.model")
+const shopModel = require("../model/shop.model");
 
 const findEmail = async ({
   email,
-  select = { email: 1, password: 2, status: 1, roles: 1 }
+  select = { email: 1, password: 2, status: 1, roles: 1 },
 }) => {
-  const data = await shopModel.findOne({ email }).lean()
+  const data = await shopModel.findOne({ email }).lean();
 
-  return data
-}
+  return data;
+};
 
 module.exports = {
-  findEmail
-}
+  findEmail,
+};

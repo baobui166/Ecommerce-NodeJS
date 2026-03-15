@@ -1,28 +1,28 @@
-"use trict"
+"use trict";
 
-const { convertToObjectIdMongodb } = require("../../utils")
-const cartModel = require("../cart.model")
+const { convertToObjectIdMongodb } = require("../../utils");
+const cartModel = require("../cart.model");
 
 const findCartById = async (cartId) => {
   return await cartModel.cart
     .findOne({
       _id: convertToObjectIdMongodb(cartId),
-      cart_state: "active"
+      cart_state: "active",
     })
-    .lean()
-}
+    .lean();
+};
 
 const findCartByIdAndUserId = async (cartId, userId) => {
   return await cartModel.cart
     .findOne({
       _id: convertToObjectIdMongodb(cartId),
       cart_state: "active",
-      cart_userId: userId
+      cart_userId: userId,
     })
-    .lean()
-}
+    .lean();
+};
 
 module.exports = {
   findCartById,
-  findCartByIdAndUserId
-}
+  findCartByIdAndUserId,
+};

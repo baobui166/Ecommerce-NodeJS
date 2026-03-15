@@ -23,7 +23,7 @@ class InventoryService {
     return await inventoryModel.inventory.findOneAndUpdate(
       query,
       updateSet,
-      options
+      options,
     );
   }
 }

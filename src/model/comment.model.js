@@ -1,10 +1,10 @@
-" use strict"
+" use strict";
 
-const { model, Schema } = require("mongoose")
-const { schema } = require("./order.model")
+const { model, Schema } = require("mongoose");
+const { schema } = require("./order.model");
 
-const DOCUMENT_NAME = "Comment"
-const COLLECTION_NAME = "Comments"
+const DOCUMENT_NAME = "Comment";
+const COLLECTION_NAME = "Comments";
 
 const commentSchema = new Schema(
   {
@@ -14,12 +14,12 @@ const commentSchema = new Schema(
     comment_left: { type: Number, default: 0 },
     comment_right: { type: Number, default: 0 },
     comment_parentId: { type: Schema.Types.ObjectId, ref: DOCUMENT_NAME },
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
   },
   {
     collection: COLLECTION_NAME,
-    timestamps: true
-  }
-)
+    timestamps: true,
+  },
+);
 
-module.exports = model(DOCUMENT_NAME, commentSchema)
+module.exports = model(DOCUMENT_NAME, commentSchema);

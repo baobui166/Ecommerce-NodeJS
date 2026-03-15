@@ -13,18 +13,16 @@ const acquireLock = async (productId, quantity, cartId) => {
   const expireTime = 3000;
 
   for (let i = 0; i < retryTime; i++) {
-
     const result = await redisClient.set(key, "lock", {
       NX: true,
-      PX: expireTime
+      PX: expireTime,
     });
 
     if (result) {
-
       const isReservation = await reservationInventory({
         productId,
         quantity,
-        cartId
+        cartId,
       });
 
       if (isReservation.modifiedCount) {
@@ -33,7 +31,6 @@ const acquireLock = async (productId, quantity, cartId) => {
 
       await redisClient.del(key);
       return null;
-
     } else {
       await setTimeout(50);
     }
@@ -48,5 +45,5 @@ const releaseLock = async (keyLock) => {
 
 module.exports = {
   acquireLock,
-  releaseLock
+  releaseLock,
 };

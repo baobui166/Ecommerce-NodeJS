@@ -1,56 +1,56 @@
-"use strict"
+"use strict";
 
-const { findById } = require("../services/apiKey.service")
+const { findById } = require("../services/apiKey.service");
 
 const HEADER = {
   API_KEY: "x-api-key",
-  AUTHORIZATION: "authorization"
-}
+  AUTHORIZATION: "authorization",
+};
 const apiKey = async (req, res, next) => {
   try {
-    const key = req.headers[HEADER.API_KEY]?.toString()
+    const key = req.headers[HEADER.API_KEY]?.toString();
     if (!key) {
       return res.status(403).json({
-        message: "Forbidden Error"
-      })
+        message: "Forbidden Error",
+      });
     }
     // check objkey
-    const objKey = await findById(key)
+    const objKey = await findById(key);
     if (!objKey) {
       return res.status(403).json({
-        message: "Forbidden Error"
-      })
+        message: "Forbidden Error",
+      });
     }
 
-    req.objKey = objKey
+    req.objKey = objKey;
 
-    return next()
+    return next();
   } catch (error) {
-    console.log(error)
-    return next(error)
+    console.log(error);
+    return next(error);
   }
-}
+};
 
 function permission(permission) {
   return function (req, res, next) {
     if (!req.objKey.permissions) {
       return res.status(403).json({
-        message: "permission denied"
-      })
+        message: "permission denied",
+      });
     }
 
-    const validPermission = req.objKey.permissions.includes(permission)
+    const validPermission = req.objKey.permissions.includes(permission);
     if (!validPermission) {
       return res.status(403).json({
-        message: "permission denied"
-      })
+        message: "permission denied",
+      });
     }
 
-    return next()
-  }
+    return next();
+  };
 }
 
 module.exports = {
   apiKey,
-  permission
-}
+  permission,
+};

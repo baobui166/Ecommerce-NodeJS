@@ -1,15 +1,15 @@
-"use strict"
+"use strict";
 
-const express = require("express")
-const { authentication } = require("../../auth/authUtils")
-const { asyncHandler } = require("../../helpers/asyncHandler")
-const inventoryController = require("../../controller/inventory.controller")
+const express = require("express");
+const { authentication } = require("../../auth/authUtils");
+const { asyncHandler } = require("../../helpers/asyncHandler");
+const inventoryController = require("../../controller/inventory.controller");
 
-const router = express.Router()
+const router = express.Router();
 
 /////// Authentication ///////
-router.use(authentication)
+router.use(authentication);
 
-router.post("/", asyncHandler(inventoryController.addStock))
+router.post("/", asyncHandler(inventoryController.addStock));
 
-module.exports = router
+module.exports = router;

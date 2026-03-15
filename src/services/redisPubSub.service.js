@@ -1,30 +1,30 @@
-const Redis = require("redis")
+const Redis = require("redis");
 
 class RedisPubSubService {
   constructor() {
-    this.subscriber = Redis.createClient()
-    this.publisher = Redis.createClient()
+    this.subscriber = Redis.createClient();
+    this.publisher = Redis.createClient();
   }
 
   publish(channel, message) {
     return new Promise((resovel, reject) => {
       this.publisher.publish(channel, message, (err, rely) => {
         if (err) {
-          reject(err)
+          reject(err);
         } else {
-          resovel(rely)
+          resovel(rely);
         }
-      })
-    })
+      });
+    });
   }
 
   subscribe(channel, callback) {
-    this.subscriber.subscribe(channel)
+    this.subscriber.subscribe(channel);
     this.subscriber.on("message", (subscriberChannel, message) => {
       if (channel === subscriberChannel) {
-        callback(channel, message)
+        callback(channel, message);
       }
-    })
+    });
   }
 }
-module.exports = new RedisPubSubService()
+module.exports = new RedisPubSubService();
