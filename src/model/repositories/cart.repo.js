@@ -1,4 +1,4 @@
-"use trict";
+"use strict";
 
 const { convertToObjectIdMongodb } = require("../../utils");
 const cartModel = require("../cart.model");

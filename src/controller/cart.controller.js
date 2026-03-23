@@ -5,10 +5,10 @@ const CartService = require("../services/cart.service");
 
 class CartController {
   addToCart = async (req, res, next) => {
-    const { userId, product } = req.body;
+    const { product } = req.body;
     new SuccessResponse({
       message: "Create new Cart success",
-      metadata: await CartService.addToCart(Number(userId), product),
+      metadata: await CartService.addToCart(req.user.userId, product),
     }).send(res);
   };
 
@@ -16,7 +16,10 @@ class CartController {
   update = async (req, res, next) => {
     new SuccessResponse({
       message: "Create new Cart success",
-      metadata: await CartService.addToCartV2(req.body),
+      metadata: await CartService.addToCartV2({
+        ...req.body,
+        userId: req.user.userId,
+      }),
     }).send(res);
   };
 
@@ -24,7 +27,10 @@ class CartController {
   delete = async (req, res, next) => {
     new SuccessResponse({
       message: "delete Cart success",
-      metadata: await CartService.deleteUserCart(req.body),
+      metadata: await CartService.deleteUserCart({
+        ...req.body,
+        userId: req.user.userId,
+      }),
     }).send(res);
   };
 
@@ -32,7 +38,7 @@ class CartController {
   listToCart = async (req, res, next) => {
     new SuccessResponse({
       message: "List Cart success",
-      metadata: await CartService.getListUserCart(req.query),
+      metadata: await CartService.getListUserCart({ userId: req.user.userId }),
     }).send(res);
   };
 }

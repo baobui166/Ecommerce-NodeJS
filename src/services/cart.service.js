@@ -116,7 +116,7 @@ class CartService {
   }
 
   static async getListUserCart({ userId }) {
-    return await cartModel.cart.findOne({ cart_userId: +userId }).lean();
+    return await cartModel.cart.findOne({ cart_userId: userId }).lean();
   }
 }
 
