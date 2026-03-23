@@ -1,11 +1,10 @@
 "use strict";
 
-const { BadRequestError, NotFoundError } = require("../core/error.response");
+const { BadRequestError } = require("../core/error.response");
 const cartModel = require("../model/cart.model");
 const orderModel = require("../model/order.model");
 const {
   findCartById,
-  findCartByIdAndUserId,
 } = require("../model/repositories/cart.repo");
 const {
   findAllOrderByUserId,
@@ -51,7 +50,7 @@ class CheckoutService {
   static async checkoutReview({ cartId, userId, shop_order_ids }) {
     // check cartId ton tai khong
     const foundCart = await findCartById(cartId);
-    if (foundCart) throw new BadRequestError("Cart does not exists!");
+    if (!foundCart) throw new BadRequestError("Cart does not exists!");
 
     const checkout_order = {
         totalPrice: 0, // tong tien hang
@@ -66,11 +65,12 @@ class CheckoutService {
         shopId,
         shop_discounts = [],
         item_products = [],
-      } = shop_order_ids[0];
+      } = shop_order_ids[i];
 
       // check product available
       const checkProductServer = await checkProductByServer(item_products);
-      if (!checkProductServer[0]) throw new BadRequestError("Order wrong!!!");
+      if (!checkProductServer || checkProductServer.length === 0)
+        throw new BadRequestError("Order wrong!!!");
 
       // tong tien don hang
       const checkoutPrice = checkProductServer.reduce((acc, product) => {
@@ -182,10 +182,7 @@ class CheckoutService {
   
   */
 
-  static async getOrderByUser({ cartId, userId }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId);
-    if (!foundCart) throw new BadRequestError("Cart does not exists");
-
+  static async getOrderByUser({ userId }) {
     return await findAllOrderByUserId(userId);
   }
 
@@ -194,10 +191,7 @@ class CheckoutService {
   
   */
 
-  static async getOneOrderByUser({ cartId, userId, orderId }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId);
-    if (!foundCart) throw new BadRequestError("Cart does not exists");
-
+  static async getOneOrderByUser({ userId, orderId }) {
     const foundOrder = await findOneOrderByOrderId(orderId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
@@ -208,15 +202,7 @@ class CheckoutService {
     1. cancel order [User]
   */
 
-  static async cancelOrderByUser({
-    cartId,
-    userId,
-    orderId,
-    status = "cancelled",
-  }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId);
-    if (!foundCart) throw new BadRequestError("Cart does not exists");
-
+  static async cancelOrderByUser({ userId, orderId, status = "cancelled" }) {
     const foundOrder = await findOneOrderByOrderId(orderId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
@@ -227,14 +213,11 @@ class CheckoutService {
     1. updating Order status [Shop | Admin] 
   */
 
-  static async updateOrderStatusByShop({ shopId, orderId, status }) {
-    const foundCart = await findCartByIdAndUserId(cartId, userId);
-    if (!foundCart) throw new BadRequestError("Cart does not exists");
-
+  static async updateOrderStatusByShop({ orderId, status, shopId }) {
     const foundOrder = await findOneOrderByOrderId(orderId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return await changeOrderStatusByAdmin(userId, orderId, status, shopId);
+    return await changeOrderStatusByAdmin(orderId, status, shopId);
   }
 }
 
