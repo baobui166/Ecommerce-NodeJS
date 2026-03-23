@@ -123,15 +123,14 @@ const checkProductByServer = async (products) => {
   return await Promise.all(
     products.map(async (product) => {
       const foundProduct = await getProductById(product.productId);
-      if (foundProduct) {
-        return {
-          price: foundProduct.product_price,
-          quantity: product.quantity,
-          productId: product.productId,
-        };
-      }
+      if (!foundProduct) return null;
+      return {
+        price: foundProduct.product_price,
+        quantity: product.quantity,
+        productId: product.productId,
+      };
     }),
-  );
+  ).then((results) => results.filter((p) => p !== null));
 };
 
 module.exports = {

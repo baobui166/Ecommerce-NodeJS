@@ -5,7 +5,7 @@ const orderModel = require("../order.model");
 
 const findAllOrderByUserId = async (userId) => {
   return await orderModel
-    .findOne({
+    .find({
       order_userId: userId,
     })
     .lean();
@@ -18,22 +18,31 @@ const findOneOrderByOrderId = async (orderId) => {
 const cancelOrderStatusByUser = async (
   userId,
   orderId,
-  status = "cancelling",
+  status = "cancelled",
 ) => {
-  return await orderModel.findOneAndUpdate({
-    _id: orderId,
-    order_userId: userId,
-    order_status: status,
-  });
+  return await orderModel.findOneAndUpdate(
+    {
+      _id: orderId,
+      order_userId: userId,
+    },
+    {
+      order_status: status,
+    },
+    { new: true },
+  );
 };
 
-const changeOrderStatusByAdmin = async (userId, orderId, status, shopId) => {
-  return await orderModel.findOneAndUpdate({
-    _id: orderId,
-    order_userId: userId,
-    order_status: status,
-    order_shopId: shopId,
-  });
+const changeOrderStatusByAdmin = async (orderId, status, shopId) => {
+  return await orderModel.findOneAndUpdate(
+    {
+      _id: orderId,
+      order_shopId: shopId,
+    },
+    {
+      order_status: status,
+    },
+    { new: true },
+  );
 };
 
 module.exports = {

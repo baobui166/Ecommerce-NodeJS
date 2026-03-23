@@ -8,7 +8,7 @@ const checkoutController = require("../../controller/checkout.controller");
 const router = express.Router();
 
 /////// Authentication ///////
-//router.use(authentication)
+router.use(authentication);
 
 router.post("/review", asyncHandler(checkoutController.checkReview));
 router.get("/getOne", asyncHandler(checkoutController.getOneOrderByUser));

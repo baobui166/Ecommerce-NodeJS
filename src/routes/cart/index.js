@@ -8,7 +8,7 @@ const cartController = require("../../controller/cart.controller");
 const router = express.Router();
 
 /////// Authentication ///////
-//router.use(authentication)
+router.use(authentication);
 
 router.post("", asyncHandler(cartController.addToCart));
 router.delete("", asyncHandler(cartController.delete));

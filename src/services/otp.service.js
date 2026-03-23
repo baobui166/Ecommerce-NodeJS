@@ -23,7 +23,7 @@ const checkEmailToken = async ({ token = null }) => {
     throw new Error("Token not found!!!");
   }
 
-  // delete token from model
+  // delete tok en from model
   otpModel.deleteOne({ otp_token: token });
 
   return otp;

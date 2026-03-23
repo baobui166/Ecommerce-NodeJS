@@ -1,7 +1,7 @@
 "use strict";
 
 const { setTimeout } = require("timers/promises");
-const { reservationInventory } = require("../model/repositories/invetory.repo");
+const { reservationInventory } = require("../model/repositories/inventory.repo");
 const { getRedis } = require("../dbs/init.redis");
 
 const { instanceConnect: redisClient } = getRedis();
