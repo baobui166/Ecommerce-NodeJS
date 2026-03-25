@@ -19,8 +19,8 @@ const userSchema = new Schema(
     user_role: { type: Schema.Types.ObjectId, ref: "Role" },
     user_status: {
       type: String,
-      default: "pending",
-      enum: ["peding", "active", "block"],
+      default: "active",
+      enum: ["pending", "active", "blocked"],
     },
   },
   {

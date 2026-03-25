@@ -2,13 +2,19 @@ const express = require("express");
 const morgan = require("morgan");
 const { default: helmet } = require("helmet");
 const compression = require("compression");
+const cors = require("cors");
 const { overLoad } = require("./helpers/check.connect");
 const { v4: uuidv4 } = require("uuid");
 const myLogger = require("./loggers/myLogger.log");
 
 const app = express();
 
-//init midddleware
+//init middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token']
+}));
 app.use(morgan("dev"));
 app.use(helmet());
 app.use(compression());
