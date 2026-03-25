@@ -7,18 +7,31 @@ const checkoutController = require("../../controller/checkout.controller");
 
 const router = express.Router();
 
-/////// Authentication ///////
-router.use(authentication);
+/////// Authentication //////
 
-router.post("/review", asyncHandler(checkoutController.checkReview));
-router.get("/getOne", asyncHandler(checkoutController.getOneOrderByUser));
-router.get("/getAll", asyncHandler(checkoutController.getAllOrderByUser));
+router.post(
+  "/review",
+  authentication,
+  asyncHandler(checkoutController.checkReview),
+);
+router.get(
+  "/getOne",
+  authentication,
+  asyncHandler(checkoutController.getOneOrderByUser),
+);
+router.get(
+  "/getAll",
+  authentication,
+  asyncHandler(checkoutController.getAllOrderByUser),
+);
 router.put(
   "/cancelOrder",
+  authentication,
   asyncHandler(checkoutController.cancellingOrderByUser),
 );
 router.put(
   "/updateStatus",
+  authentication,
   asyncHandler(checkoutController.changeStatusOrderByAdmin),
 );
 

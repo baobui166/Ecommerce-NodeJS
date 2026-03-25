@@ -10,7 +10,7 @@ router.use(apiKey);
 // check permission
 router.use(permission("0000"));
 
-router.use("/v1/api/user", require("./user"));
+// authentication
 router.use("/v1/api/discount", require("./discount"));
 router.use("/v1/api/comment", require("./comment"));
 router.use("/v1/api/inventory", require("./inventory"));
@@ -23,5 +23,6 @@ router.use("/v1/api/upload", require("./upload"));
 router.use("/v1/api/profile", require("./profile"));
 router.use("/v1/api/rbac", require("./rbac"));
 router.use("/v1/api/email", require("./email"));
+router.use("/v1/api/user", require("./user"));
 
 module.exports = router;

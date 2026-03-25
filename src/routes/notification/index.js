@@ -8,8 +8,11 @@ const notificationController = require("../../controller/notification.controller
 const router = express.Router();
 
 /////// Authentication ///////
-router.use(authentication);
 
-router.get("/", asyncHandler(notificationController.listNotiByUser));
+router.get(
+  "/",
+  authentication,
+  asyncHandler(notificationController.listNotiByUser),
+);
 
 module.exports = router;

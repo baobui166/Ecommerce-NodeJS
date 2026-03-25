@@ -8,8 +8,7 @@ const inventoryController = require("../../controller/inventory.controller");
 const router = express.Router();
 
 /////// Authentication ///////
-router.use(authentication);
 
-router.post("/", asyncHandler(inventoryController.addStock));
+router.post("/", authentication, asyncHandler(inventoryController.addStock));
 
 module.exports = router;

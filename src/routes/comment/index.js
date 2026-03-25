@@ -8,10 +8,17 @@ const commentController = require("../../controller/comment.controller");
 const router = express.Router();
 
 /////// Authentication ///////
-router.use(authentication);
 
-router.post("/", asyncHandler(commentController.createComment));
-router.get("/", asyncHandler(commentController.getAllCommentByParentCommentId));
-router.delete("/", asyncHandler(commentController.deleteComment));
+router.post("/", authentication, asyncHandler(commentController.createComment));
+router.get(
+  "/",
+  authentication,
+  asyncHandler(commentController.getAllCommentByParentCommentId),
+);
+router.delete(
+  "/",
+  authentication,
+  asyncHandler(commentController.deleteComment),
+);
 
 module.exports = router;

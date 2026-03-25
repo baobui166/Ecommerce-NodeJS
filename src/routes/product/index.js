@@ -13,17 +13,36 @@ router.post(
 router.get("/", asyncHandler(productController.findAllProducts));
 router.get("/:product_id", asyncHandler(productController.findProduct));
 
-/////// Authentication ///////
-router.use(authentication);
-/////////////////////////////
-router.post("/", asyncHandler(productController.createNewProduct));
-router.patch("/:productId", asyncHandler(productController.updateProduct));
-router.post("/publish/:id", asyncHandler(productController.publishProduct));
-router.post("/unpublish/:id", asyncHandler(productController.unPublishProduct));
+// authentication
+router.post(
+  "/",
+  authentication,
+  asyncHandler(productController.createNewProduct),
+);
+router.patch(
+  "/:productId",
+  authentication,
+  asyncHandler(productController.updateProduct),
+);
+router.post(
+  "/publish/:id",
+  authentication,
+  asyncHandler(productController.publishProduct),
+);
+router.post(
+  "/unpublish/:id",
+  authentication,
+  asyncHandler(productController.unPublishProduct),
+);
 //QUERY
-router.get("/drafts/all", asyncHandler(productController.getAllDraftsForShop));
+router.get(
+  "/drafts/all",
+  authentication,
+  asyncHandler(productController.getAllDraftsForShop),
+);
 router.get(
   "/published/all",
+  authentication,
   asyncHandler(productController.getAllPublishForShop),
 );
 
