@@ -47,15 +47,19 @@ const handleEventConnect = ({ connectionRedis }) => {
 };
 
 const initRedis = async () => {
-  const redisUrl = `redis://${process.env.REDIS_HOST || "127.0.0.1"}:${
-    process.env.REDIS_PORT || 6379
-  }`;
-
-  const instanceRedis = redis.createClient({
-    url: redisUrl,
-    password: process.env.REDIS_PASSWORD || undefined,
+  const options = {
+    socket: {
+      host: process.env.REDIS_HOST || "127.0.0.1",
+      port: Number(process.env.REDIS_PORT) || 6379,
+    },
     database: Number(process.env.REDIS_DB) || 0,
-  });
+  };
+
+  if (process.env.REDIS_PASSWORD) {
+    options.socket.password = process.env.REDIS_PASSWORD;
+  }
+
+  const instanceRedis = redis.createClient(options);
 
   handleEventConnect({ connectionRedis: instanceRedis });
 
