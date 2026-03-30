@@ -11,6 +11,7 @@ router.post(
   asyncHandler(productController.getListSearchProductByUser),
 );
 router.get("/", asyncHandler(productController.findAllProducts));
+router.get("/types", asyncHandler(productController.getAllProductTypes));
 router.get("/:product_id", asyncHandler(productController.findProduct));
 
 // authentication
@@ -23,6 +24,11 @@ router.patch(
   "/:productId",
   authentication,
   asyncHandler(productController.updateProduct),
+);
+router.delete(
+  "/:productId",
+  authentication,
+  asyncHandler(productController.deleteProduct),
 );
 router.post(
   "/publish/:id",

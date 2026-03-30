@@ -95,9 +95,10 @@ class ProductController {
   };
 
   findAllProducts = async (req, res, next) => {
+    const isPublic = !req.headers["x-client-id"];
     new SuccessResponse({
       message: "Get list findAllProduct success!!!",
-      metadata: await ProductServiceV2.findAllProducts(req.query),
+      metadata: await ProductServiceV2.findAllProducts({ ...req.query, isPublic }),
     }).send(res);
   };
 
@@ -107,6 +108,23 @@ class ProductController {
       metadata: await ProductServiceV2.findProduct({
         product_id: req.params.product_id,
       }),
+    }).send(res);
+  };
+
+  deleteProduct = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Delete product success!!!",
+      metadata: await ProductServiceV2.deleteProduct({
+        product_id: req.params.productId,
+        product_shop: req.user.userId,
+      }),
+    }).send(res);
+  };
+
+  getAllProductTypes = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get all product types success!!!",
+      metadata: ProductServiceV2.getAllProductTypes(),
     }).send(res);
   };
 }

@@ -1,6 +1,7 @@
 "use strict";
 
-const { BadRequestError } = require("../core/error.response");
+const { Types } = require("mongoose");
+const { BadRequestError, NotFoundError } = require("../core/error.response");
 const {
   product,
   clothing,
@@ -15,6 +16,7 @@ const {
   unpublishProductByShop,
   searchProduct,
   findAllProducts,
+  findAllProductsAdmin,
   findProduct,
   updateProductById,
 } = require("../model/repositories/product.repo");
@@ -77,20 +79,44 @@ class ProductFactoryV2 {
     limit = 50,
     sort = "ctime",
     page = 1,
-    filter = { isPulished: true },
+    filter,
+    isPublic = false,
     select = ["product_name", "product_price", "product_thumb", "product_shop"],
   }) {
-    return await findAllProducts({
+    if (isPublic) {
+      return await findAllProducts({
+        limit,
+        sort,
+        page,
+        filter: { isPulished: true },
+        select: select,
+      });
+    }
+    return await findAllProductsAdmin({
       limit,
       sort,
       page,
-      filter,
-      select: select,
     });
   }
 
   static async findProduct({ product_id }) {
     return await findProduct({ product_id, unSelect: ["__v"] });
+  }
+
+  static getAllProductTypes() {
+    return Object.keys(ProductFactoryV2.productRegistry);
+  }
+
+  static async deleteProduct({ product_id, product_shop }) {
+    const foundProduct = await product.findOne({
+      _id: new Types.ObjectId(product_id),
+      product_shop: new Types.ObjectId(product_shop),
+    });
+
+    if (!foundProduct) throw new NotFoundError("Product not found or unauthorized!");
+
+    await product.delete({ _id: new Types.ObjectId(product_id) });
+    return { message: "Product deleted successfully!" };
   }
 }
 

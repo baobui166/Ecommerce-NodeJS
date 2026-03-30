@@ -9,8 +9,35 @@ const {
 } = require("../../model/product.model");
 const { getSelectData, unGetSelectData } = require("../../utils");
 
+const queryProduct = async ({ query, limit, skip }) => {
+  return await product
+    .find(query)
+    .populate("product_shop", "name email -_id")
+    .sort({ updateAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean()
+    .exec();
+};
+
+const countProduct = async (query) => {
+  return await product.countDocuments(query).lean().exec();
+};
+
 const findAllDraftsForShop = async ({ query, limit, skip }) => {
-  return await queryProduct({ query, limit, skip });
+  const [products, total] = await Promise.all([
+    queryProduct({ query, limit, skip }),
+    countProduct(query),
+  ]);
+  return {
+    products,
+    pagination: {
+      total,
+      page: Math.floor(skip / limit) + 1,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const searchProduct = async ({ keySearch }) => {
@@ -71,18 +98,19 @@ const unpublishProductByShop = async ({ product_shop, product_id }) => {
 };
 
 const findAllPublishForShop = async ({ query, limit, skip }) => {
-  return await queryProduct({ query, limit, skip });
-};
-
-const queryProduct = async ({ query, limit, skip }) => {
-  return await product
-    .find(query)
-    .populate("product_shop", "name email -_id")
-    .sort({ updateAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean()
-    .exec();
+  const [products, total] = await Promise.all([
+    queryProduct({ query, limit, skip }),
+    countProduct(query),
+  ]);
+  return {
+    products,
+    pagination: {
+      total,
+      page: Math.floor(skip / limit) + 1,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const findAllProducts = async ({ limit, sort, page, filter, select }) => {
@@ -97,6 +125,32 @@ const findAllProducts = async ({ limit, sort, page, filter, select }) => {
     .lean();
 
   return products;
+};
+
+const findAllProductsAdmin = async ({ limit, sort, page }) => {
+  const skip = (page - 1) * limit;
+  const sortBy = sort === "ctime" ? { createdAt: -1 } : { createdAt: 1 };
+
+  const [products, total] = await Promise.all([
+    product
+      .find({})
+      .populate("product_shop", "name email")
+      .sort(sortBy)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    product.countDocuments({}),
+  ]);
+
+  return {
+    products,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const getProductById = async (productId) => {
@@ -140,6 +194,7 @@ module.exports = {
   unpublishProductByShop,
   searchProduct,
   findAllProducts,
+  findAllProductsAdmin,
   findProduct,
   updateProductById,
   getProductById,

@@ -33,6 +33,13 @@ class AccessController {
       metadata: await AccessService.handleRefreshToken(req.body.refreshToken),
     }).send(res);
   };
+
+  adminLogin = async (req, res, next) => {
+    new OK({
+      message: "Admin login success!",
+      metadata: await AccessService.adminLogin(req.body),
+    }).send(res);
+  };
 }
 
 module.exports = new AccessController();

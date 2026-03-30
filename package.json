@@ -28,6 +28,7 @@
     "kafkajs": "^2.2.4",
     "lodash": "^4.17.21",
     "mongoose": "^8.13.2",
+    "mongoose-delete": "^1.0.7",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "mysql2": "^3.15.3",
