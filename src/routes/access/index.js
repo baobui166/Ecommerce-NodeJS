@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.post("/shop/signup", asyncHandler(accessController.signup));
 router.post("/shop/login", asyncHandler(accessController.login));
+router.post("/shop/admin/login", asyncHandler(accessController.adminLogin));
 
 router.post(
   "/shop/logout",

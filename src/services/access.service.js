@@ -16,9 +16,9 @@ const keytokenModel = require("../model/keytoken.model");
 
 const RoleShop = {
   SHOP: "SHOP",
+  ADMIN: "ADMIN",
   WRITE: "0001",
   EDITOR: "0001",
-  ADMIN: "0001",
 };
 
 class AccessService {
@@ -137,6 +137,51 @@ class AccessService {
   /*
   check this token used?
   */
+
+  static adminLogin = async ({ email, password }) => {
+    //1
+    const foundShop = await findEmail({ email });
+    if (!foundShop) {
+      throw new AuthFailureError("Invalid email or password!");
+    }
+
+    //2
+    const match = bcrypt.compare(password, foundShop.password);
+    if (!match) {
+      throw new AuthFailureError("Invalid email or password!");
+    }
+
+    //3 check admin role
+    const isAdmin =
+      foundShop.roles && foundShop.roles.includes(RoleShop.ADMIN);
+    if (!isAdmin) {
+      throw new ForbiddenError("You do not have permission to access the admin page!");
+    }
+
+    //4 create tokens
+    const publicKey = crypto.randomBytes(68).toString("hex");
+    const privateKey = crypto.randomBytes(68).toString("hex");
+    const tokens = await createTokenPair(
+      { userId: foundShop._id, email },
+      publicKey,
+      privateKey
+    );
+
+    await KeyTokenService.createKeyToken({
+      userId: foundShop._id,
+      refreshToken: tokens.refreshToken,
+      privateKey,
+      publicKey,
+    });
+
+    return {
+      shop: getInfoData({
+        fields: ["_id", "name", "email", "roles", "status"],
+        object: foundShop,
+      }),
+      tokens,
+    };
+  };
 
   static handleRefreshToken = async (refreshToken) => {
     const foundToken =
