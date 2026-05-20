@@ -3,9 +3,7 @@
 const { BadRequestError } = require("../core/error.response");
 const cartModel = require("../model/cart.model");
 const orderModel = require("../model/order.model");
-const {
-  findCartById,
-} = require("../model/repositories/cart.repo");
+const { findCartById } = require("../model/repositories/cart.repo");
 const {
   findAllOrderByUserId,
   findOneOrderByOrderId,
@@ -13,8 +11,9 @@ const {
   changeOrderStatusByAdmin,
 } = require("../model/repositories/order.repo");
 const { checkProductByServer } = require("../model/repositories/product.repo");
-const { getDiscountAmount } = require("./discount.service");
+const DiscountService = require("./discount.service");
 const { acquireLock, releaseLock } = require("./redis.service");
+const { publishEvent } = require("./eventBus.service");
 
 class CheckoutService {
   /*
@@ -48,6 +47,14 @@ class CheckoutService {
 	  }
 	  */
   static async checkoutReview({ cartId, userId, shop_order_ids }) {
+    if (!cartId) {
+      const activeCart = await cartModel.cart
+        .findOne({ cart_userId: userId, cart_state: "active" })
+        .lean();
+      cartId = activeCart?._id;
+    }
+    if (!cartId) throw new BadRequestError("Cart does not exists!");
+
     // check cartId ton tai khong
     const foundCart = await findCartById(cartId);
     if (!foundCart) throw new BadRequestError("Cart does not exists!");
@@ -69,7 +76,11 @@ class CheckoutService {
 
       // check product available
       const checkProductServer = await checkProductByServer(item_products);
-      if (!checkProductServer || checkProductServer.length === 0)
+      if (
+        !checkProductServer ||
+        checkProductServer.length === 0 ||
+        checkProductServer.length !== item_products.length
+      )
         throw new BadRequestError("Order wrong!!!");
 
       // tong tien don hang
@@ -92,7 +103,7 @@ class CheckoutService {
       if (shop_discounts.length > 0) {
         // gia su co 1 discount
         // check discount
-        const { totalPrice = 0, discount = 0 } = await getDiscountAmount({
+        const { totalPrice = 0, discount = 0 } = await DiscountService.getDiscountAmount({
           codeId: shop_discounts[0].codeId,
           userId,
           shopId,
@@ -152,10 +163,16 @@ class CheckoutService {
 
     const newOrder = await orderModel.create({
       order_userId: userId,
+      order_shopId: shop_order_ids_new[0]?.shopId,
       order_checkout: checkout_order,
       order_shipping: user_address,
-      order_payment: user_payment,
+      order_payment: {
+        method: user_payment.method || "COD",
+        status: user_payment.method === "ONLINE_MOCK" ? "paid_mock" : "pending",
+        ...user_payment,
+      },
       order_products: shop_order_ids_new,
+      order_trackingNumber: `ORD-${Date.now()}`,
     });
 
     // truong hop: neu thanh cong, thi remove product co trong gio hang
@@ -173,6 +190,16 @@ class CheckoutService {
           },
         },
       );
+
+      publishEvent({
+        type: "order.created",
+        userId,
+        orderId: newOrder._id,
+        metadata: {
+          totalCheckout: checkout_order.totalCheckout,
+          paymentMethod: newOrder.order_payment.method,
+        },
+      }).catch(() => {});
     }
     return newOrder;
   }

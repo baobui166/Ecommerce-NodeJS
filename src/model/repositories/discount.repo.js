@@ -53,8 +53,11 @@ const checkDiscount = async ({ model, filter }) => {
   return await model.findOne(filter).lean();
 };
 
+const checkDiscountExists = checkDiscount;
+
 module.exports = {
   findAllDiscountCodeUnSelect,
   findAllDiscountCodeSelect,
   checkDiscount,
+  checkDiscountExists,
 };

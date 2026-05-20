@@ -7,7 +7,10 @@ class notificationController {
   listNotiByUser = async (req, res, next) => {
     new SuccessResponse({
       message: "Get noti by user successfully!",
-      metadata: await NotificationService.listNotiByUser(req.body),
+      metadata: await NotificationService.listNotiByUser({
+        ...req.query,
+        userId: req.user?.userId,
+      }),
     }).send(res);
   };
 }

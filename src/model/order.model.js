@@ -7,8 +7,8 @@ const COLLECTION_NAME = "Orders";
 // Declare the Schema of the Mongo model
 var orderSchema = new Schema(
   {
-    order_userId: { type: Number, required: true },
-    order_shopId: { type: Number, required: true },
+    order_userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    order_shopId: { type: Schema.Types.ObjectId, ref: "Shop", index: true },
     /*
 	  order_checkout = {
 	  	totalPrice,
@@ -32,7 +32,7 @@ var orderSchema = new Schema(
     order_trackingNumber: { type: String, default: "#000011" },
     order_status: {
       type: String,
-      enum: ["pending", "confirmed", "shipped", "cancelled", "delivered"],
+      enum: ["pending", "confirmed", "processing", "shipped", "cancelled", "delivered"],
       default: "pending",
     },
   },

@@ -2,7 +2,7 @@
 
 const { BadRequestError, NotFoundError } = require("../core/error.response");
 const { convertToObjectIdMongodb } = require("../utils");
-const { findAllProducts } = require("./product.service.xxx");
+const ProductService = require("./product.service.xxx");
 const {
   findAllDiscountCodeUnSelect,
   checkDiscount,
@@ -93,7 +93,7 @@ class DiscountService {
     let products;
 
     if (discount_applies_to === "all") {
-      products = await findAllProducts({
+      products = await ProductService.findAllProducts({
         filter: {
           product_shop: convertToObjectIdMongodb(shopId),
           isPublish: true,
@@ -104,7 +104,7 @@ class DiscountService {
         select: ["product_name"],
       });
     } else if (discount_applies_to === "specific") {
-      products = await findAllProducts({
+      products = await ProductService.findAllProducts({
         filter: {
           _id: { $in: discount_product_ids },
           isPublish: true,
@@ -172,13 +172,11 @@ class DiscountService {
       throw new NotFoundError("Discount code has expired!!!");
     }
 
-    let totalOrder = 0;
+    let totalOrder = products.reduce(
+      (acc, product) => acc + product.quantity * product.price,
+      0,
+    );
     if (discount_min_order_value > 0) {
-      totalOrder = products.reduce(
-        (acc, product) => acc + product.quantity * product.price,
-        0,
-      );
-
       if (totalOrder < discount_min_order_value) {
         throw new NotFoundError("Discount requires a minimum order value!!!");
       }
@@ -193,10 +191,11 @@ class DiscountService {
       }
     }
 
-    const amount =
+    const rawAmount =
       discount_type === "fixed_amount"
         ? discount_value
         : totalOrder * (discount_value / 100);
+    const amount = Math.min(rawAmount, foundDiscount.discount_max_value || rawAmount, totalOrder);
 
     return { totalOrder, discount: amount, totalPrice: totalOrder - amount };
   }

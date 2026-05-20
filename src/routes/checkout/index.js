@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { authentication } = require("../../auth/authUtils");
+const { requireAdmin } = require("../../middlewares/admin.middleware");
 const { asyncHandler } = require("../../helpers/asyncHandler");
 const checkoutController = require("../../controller/checkout.controller");
 
@@ -14,6 +15,8 @@ router.post(
   authentication,
   asyncHandler(checkoutController.checkReview),
 );
+router.post("", authentication, asyncHandler(checkoutController.orderByUser));
+router.post("/order", authentication, asyncHandler(checkoutController.orderByUser));
 router.get(
   "/getOne",
   authentication,
@@ -32,7 +35,9 @@ router.put(
 router.put(
   "/updateStatus",
   authentication,
+  requireAdmin,
   asyncHandler(checkoutController.changeStatusOrderByAdmin),
 );
+router.get("/:orderId", authentication, asyncHandler(checkoutController.getOneOrderByUser));
 
 module.exports = router;

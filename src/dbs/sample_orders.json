@@ -1,0 +1,132 @@
+[
+  {
+    "order_userId": 1,
+    "order_shopId": 1,
+    "order_checkout": {
+      "totalPrice": 1250000,
+      "totalApplyDiscount": 1200000,
+      "feeShip": 50000
+    },
+    "order_shipping": {
+      "street": "123 Nguyen Hue",
+      "state": "District 1",
+      "city": "Ho Chi Minh",
+      "country": "Vietnam"
+    },
+    "order_payment": {},
+    "order_products": [
+      {
+        "product_name": "iPhone 15 Pro",
+        "product_price": 1200000,
+        "product_quantity": 1,
+        "product_thumb": "https://placehold.co/100x100/1a1a2e/FFF?text=iPhone"
+      }
+    ],
+    "order_trackingNumber": "#ORD-1001",
+    "order_status": "pending"
+  },
+  {
+    "order_userId": 2,
+    "order_shopId": 1,
+    "order_checkout": {
+      "totalPrice": 850000,
+      "totalApplyDiscount": 800000,
+      "feeShip": 50000
+    },
+    "order_shipping": {
+      "street": "45 Le Loi",
+      "state": "Hai Ba Trung",
+      "city": "Hanoi",
+      "country": "Vietnam"
+    },
+    "order_payment": {},
+    "order_products": [
+      {
+        "product_name": "Samsung Galaxy S24",
+        "product_price": 800000,
+        "product_quantity": 1,
+        "product_thumb": "https://placehold.co/100x100/1a1a2e/FFF?text=Galaxy"
+      }
+    ],
+    "order_trackingNumber": "#ORD-1002",
+    "order_status": "confirmed"
+  },
+  {
+    "order_userId": 3,
+    "order_shopId": 1,
+    "order_checkout": {
+      "totalPrice": 2100000,
+      "totalApplyDiscount": 2100000,
+      "feeShip": 0
+    },
+    "order_shipping": {
+      "street": "78 Dong Da",
+      "state": "Dong Da",
+      "city": "Hanoi",
+      "country": "Vietnam"
+    },
+    "order_payment": {},
+    "order_products": [
+      {
+        "product_name": "MacBook Air M3",
+        "product_price": 2100000,
+        "product_quantity": 1,
+        "product_thumb": "https://placehold.co/100x100/1a1a2e/FFF?text=MacBook"
+      }
+    ],
+    "order_trackingNumber": "#ORD-1003",
+    "order_status": "shipped"
+  },
+  {
+    "order_userId": 1,
+    "order_shopId": 1,
+    "order_checkout": {
+      "totalPrice": 450000,
+      "totalApplyDiscount": 400000,
+      "feeShip": 50000
+    },
+    "order_shipping": {
+      "street": "99 Nguyen Trai",
+      "state": "District 5",
+      "city": "Ho Chi Minh",
+      "country": "Vietnam"
+    },
+    "order_payment": {},
+    "order_products": [
+      {
+        "product_name": "Sony WH-1000XM5",
+        "product_price": 400000,
+        "product_quantity": 1,
+        "product_thumb": "https://placehold.co/100x100/1a1a2e/FFF?text=Sony"
+      }
+    ],
+    "order_trackingNumber": "#ORD-1004",
+    "order_status": "delivered"
+  },
+  {
+    "order_userId": 4,
+    "order_shopId": 1,
+    "order_checkout": {
+      "totalPrice": 3200000,
+      "totalApplyDiscount": 3000000,
+      "feeShip": 200000
+    },
+    "order_shipping": {
+      "street": "15 Tran Hung Dao",
+      "state": "District 1",
+      "city": "Ho Chi Minh",
+      "country": "Vietnam"
+    },
+    "order_payment": {},
+    "order_products": [
+      {
+        "product_name": "iPad Pro 12.9",
+        "product_price": 3000000,
+        "product_quantity": 1,
+        "product_thumb": "https://placehold.co/100x100/1a1a2e/FFF?text=iPad"
+      }
+    ],
+    "order_trackingNumber": "#ORD-1005",
+    "order_status": "cancelled"
+  }
+]

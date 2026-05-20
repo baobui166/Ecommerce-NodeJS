@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { authentication } = require("../../auth/authUtils");
+const { requireAdmin } = require("../../middlewares/admin.middleware");
 const { asyncHandler } = require("../../helpers/asyncHandler");
 const discountController = require("../../controller/discount.controller");
 
@@ -18,11 +19,13 @@ router.get(
 router.post(
   "/",
   authentication,
+  requireAdmin,
   asyncHandler(discountController.createDiscountCode),
 );
 router.get(
   "/",
   authentication,
+  requireAdmin,
   asyncHandler(discountController.getAllDiscountCode),
 );
 

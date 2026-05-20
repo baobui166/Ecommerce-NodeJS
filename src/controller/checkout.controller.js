@@ -36,6 +36,8 @@ class CheckoutController {
       message: "Get one order for user successfully!!!",
       metadata: await CheckoutService.getOneOrderByUser({
         ...req.body,
+        ...req.query,
+        orderId: req.params.orderId || req.query.orderId || req.body.orderId,
         userId: req.user.userId,
       }),
     }).send(res);
