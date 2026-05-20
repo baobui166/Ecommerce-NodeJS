@@ -1,6 +1,6 @@
 require("dotenv").config();
 const app = require("./src/app");
-const PORT = 5500;
+const PORT = process.env.PORT || 5500;
 
 const server = app.listen(PORT, () => {
   console.log("xin chao");

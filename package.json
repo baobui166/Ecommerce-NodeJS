@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node --watch server.js"
+    "start": "node --watch server.js",
+    "seed:v1": "node scripts/seed-v1.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,8 @@
     "accesscontrol": "^2.2.1",
     "amqplib": "^0.10.9",
     "bcrypt": "^5.1.1",
+    "cloudinary": "^2.8.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
@@ -40,6 +43,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "compression": "^1.8.0",
     "helmet": "^8.1.0"
   }

@@ -19,10 +19,7 @@ let connectionTimeout;
 
 const handleTimeOutError = () => {
   connectionTimeout = setTimeout(() => {
-    throw new RedisErrorResponse({
-      message: REDIS_CONNECT_MESSAGE.message.en,
-      statusCode: REDIS_CONNECT_MESSAGE.code,
-    });
+    console.error(REDIS_CONNECT_MESSAGE.message.en);
   }, REDIS_CONNECT_TIMEOUT);
 };
 

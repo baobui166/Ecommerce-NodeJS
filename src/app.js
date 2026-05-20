@@ -3,18 +3,21 @@ const morgan = require("morgan");
 const { default: helmet } = require("helmet");
 const compression = require("compression");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const { overLoad } = require("./helpers/check.connect");
-const { v4: uuidv4 } = require("uuid");
+const { randomUUID } = require("crypto");
 const myLogger = require("./loggers/myLogger.log");
 
 const app = express();
 
 //init middleware
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,  // cho phép gửi/nhận cookies
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token']
 }));
+app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(helmet());
 app.use(compression());
@@ -22,7 +25,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extends: true }));
 app.use((req, res, next) => {
   const requestId = req.headers["x-request-id"];
-  req.requrestId = requestId ? requestId : uuidv4();
+  req.requestId = requestId ? requestId : randomUUID();
   myLogger.log(`input params:: ${req.method}::`, [
     req.path,
     { requestId: req.requestId },
@@ -42,7 +45,9 @@ app.use((req, res, next) => {
 require("./dbs/init.mongodb");
 overLoad();
 const initRedis = require("./dbs/init.redis");
-initRedis.initRedis();
+initRedis.initRedis().catch((error) => {
+  myLogger.error(`Redis unavailable, continuing without cache/locks: ${error.message}`);
+});
 //init route
 app.use("/", require("./routes"));
 // handle error
