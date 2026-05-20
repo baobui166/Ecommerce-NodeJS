@@ -10,6 +10,13 @@ const HEADER = {
   AUTHORIZATION: "authorization",
 };
 
+const getBearerToken = (authorization = "") => {
+  if (!authorization) return null;
+  const [scheme, token] = authorization.split(" ");
+  if (/^Bearer$/i.test(scheme) && token) return token;
+  return authorization;
+};
+
 const createTokenPair = (payload, publicKey, privateKey) => {
   try {
     //accessToken
@@ -52,7 +59,7 @@ const authentication = asyncHandler(async (req, res, next) => {
   const keyStore = await findByUserID(userId);
   if (!keyStore) throw new NotFoundError("Not found keyStore");
 
-  const accessToken = req.headers[HEADER.AUTHORIZATION];
+  const accessToken = getBearerToken(req.headers[HEADER.AUTHORIZATION]);
   if (!accessToken) throw new AuthFailureError("Invalid request");
 
   try {

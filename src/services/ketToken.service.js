@@ -23,7 +23,7 @@ class KeyTokenService {
         update = {
           publicKey,
           privateKey,
-          refreshTokenUsed: [],
+          refreshTokensUsed: [],
           refreshToken,
         },
         options = { upsert: true, new: true };

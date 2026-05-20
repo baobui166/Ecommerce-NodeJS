@@ -8,7 +8,8 @@ const { asyncHandler } = require("../../helpers/asyncHandler");
 const router = express.Router();
 
 router.post("/shop/signup", asyncHandler(accessController.signup));
-router.post("/shop/login", asyncHandler(accessController.login));
+router.post("/shop/login", asyncHandler(accessController.adminLogin));
+router.post("/shop/seller/login", asyncHandler(accessController.login));
 router.post("/shop/admin/login", asyncHandler(accessController.adminLogin));
 
 router.post(
@@ -18,7 +19,6 @@ router.post(
 );
 router.post(
   "/shop/handlerRefreshToken",
-  authentication,
   asyncHandler(accessController.handlerRefreshToken),
 );
 

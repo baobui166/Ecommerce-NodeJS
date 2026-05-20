@@ -1,31 +1,28 @@
 "use strict";
 
 const { SuccessResponse } = require("../core/success.response");
-
-const dataProfiles = [
-  { user_id: 1, user_name: "CR7", user_avatar: "image.com/user/1" },
-  { user_id: 2, user_name: "M10", user_avatar: "image.com/user/2" },
-  { user_id: 3, user_name: "G7", user_avatar: "image.com/user/3" },
-];
+const userModel = require("../model/user.model");
+const shopModel = require("../model/shop.model");
 
 class ProfileController {
   // admin
   profiles = async (req, res, next) => {
     new SuccessResponse({
       message: "View all profiles",
-      metadata: dataProfiles,
+      metadata: await userModel.find({}).select("-user_password").lean(),
     }).send(res);
   };
 
   // shop
   profile = async (req, res, next) => {
+    const isShop = req.user?.type === "shop";
+    const profile = isShop
+      ? await shopModel.findById(req.user.userId).select("-password").lean()
+      : await userModel.findById(req.user.userId).select("-user_password").lean();
+
     new SuccessResponse({
       message: "View profile",
-      metadata: {
-        user_id: 1,
-        user_name: "CR7",
-        user_avatar: "image.com/user/1",
-      },
+      metadata: { user: profile },
     }).send(res);
   };
 }

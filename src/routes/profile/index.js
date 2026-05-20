@@ -2,13 +2,14 @@
 
 const express = require("express");
 const { profiles, profile } = require("../../controller/profile.controller");
-const { grantAccess } = require("../../middlewares/rbac.middleware");
+const { authentication } = require("../../auth/authUtils");
+const { requireAdmin } = require("../../middlewares/admin.middleware");
 const router = express.Router();
 
 // admin
-router.get("/viewAny", grantAccess("readAny", "profile"), profiles);
+router.get("/viewAny", authentication, requireAdmin, profiles);
 
 // shop
-router.get("/viewOwn", grantAccess("readOwn", "profile"), profile);
+router.get("/viewOwn", authentication, profile);
 
 module.exports = router;

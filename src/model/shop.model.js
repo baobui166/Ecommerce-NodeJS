@@ -34,6 +34,10 @@ var shopSchema = new Schema(
       type: Array,
       default: [],
     },
+    settings: {
+      type: Object,
+      default: {},
+    },
   },
   { timestamps: true, collection: COLECTION_NAME },
 );

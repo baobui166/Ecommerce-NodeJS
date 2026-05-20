@@ -13,6 +13,7 @@ const {
 } = require("../core/error.response");
 const { findEmail } = require("./shop.service");
 const keytokenModel = require("../model/keytoken.model");
+const userModel = require("../model/user.model");
 
 const RoleShop = {
   SHOP: "SHOP",
@@ -36,7 +37,7 @@ class AccessService {
       throw new BadRequestError("Shop not registered!!!");
     }
     //2
-    const match = bcrypt.compare(password, foundShop.password);
+    const match = await bcrypt.compare(password, foundShop.password);
     if (!match) {
       throw new AuthFailureError("Authen Error!!!");
     }
@@ -59,7 +60,7 @@ class AccessService {
 
     return {
       shop: getInfoData({
-        fields: ["_id", "name", "email"],
+        fields: ["_id", "name", "email", "roles", "status", "verify"],
         object: foundShop,
       }),
       tokens,
@@ -102,7 +103,7 @@ class AccessService {
 
       // create token
       const tokens = await createTokenPair(
-        { userId: newShop._id, email },
+        { userId: newShop._id, email, role: "admin", type: "shop" },
         publicKey,
         privateKey,
       );
@@ -112,7 +113,7 @@ class AccessService {
         code: 201,
         metadata: {
           shop: getInfoData({
-            fields: ["_id", "name", "email"],
+            fields: ["_id", "name", "email", "roles", "status", "verify"],
             object: newShop,
           }),
           tokens,
@@ -146,14 +147,14 @@ class AccessService {
     }
 
     //2
-    const match = bcrypt.compare(password, foundShop.password);
+    const match = await bcrypt.compare(password, foundShop.password);
     if (!match) {
       throw new AuthFailureError("Invalid email or password!");
     }
 
     //3 check admin role
-    const isAdmin =
-      foundShop.roles && foundShop.roles.includes(RoleShop.ADMIN);
+    const roles = foundShop.roles || [];
+    const isAdmin = roles.includes(RoleShop.ADMIN) || roles.includes(RoleShop.SHOP);
     if (!isAdmin) {
       throw new ForbiddenError("You do not have permission to access the admin page!");
     }
@@ -162,7 +163,7 @@ class AccessService {
     const publicKey = crypto.randomBytes(68).toString("hex");
     const privateKey = crypto.randomBytes(68).toString("hex");
     const tokens = await createTokenPair(
-      { userId: foundShop._id, email },
+      { userId: foundShop._id, email, role: "admin", type: "shop" },
       publicKey,
       privateKey
     );
@@ -176,7 +177,7 @@ class AccessService {
 
     return {
       shop: getInfoData({
-        fields: ["_id", "name", "email", "roles", "status"],
+        fields: ["_id", "name", "email", "roles", "status", "verify"],
         object: foundShop,
       }),
       tokens,
@@ -207,17 +208,18 @@ class AccessService {
 
     //verify token
 
-    const { userId, email } = await verifyToken(
+    const { userId, email, role, type } = await verifyToken(
       refreshToken,
       holderToken.privateKey,
     );
 
     const foundShop = await findEmail({ email });
-    if (!foundShop) throw new AuthFailureError("Shop not registered 2");
+    const foundUser = foundShop ? null : await userModel.findOne({ user_email: email }).lean();
+    if (!foundShop && !foundUser) throw new AuthFailureError("Account not registered");
 
     // create new token
     const tokens = await createTokenPair(
-      { userId, email },
+      { userId, email, role, type },
       holderToken.publicKey,
       holderToken.privateKey,
     );
@@ -233,7 +235,9 @@ class AccessService {
     });
 
     return {
-      user: { userId, email },
+      user: foundShop
+        ? getInfoData({ fields: ["_id", "name", "email", "roles", "status", "verify"], object: foundShop })
+        : getInfoData({ fields: ["_id", "user_slug", "user_name", "user_email", "user_status"], object: foundUser }),
       tokens,
     };
   };

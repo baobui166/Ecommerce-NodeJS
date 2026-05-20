@@ -11,7 +11,6 @@ const KeyTokenService = require("./ketToken.service");
 const shopModel = require("../model/shop.model");
 const { createTokenPair } = require("../auth/authUtils");
 const { getInfoData } = require("../utils");
-const { createUser } = require("../model/repositories/user.repo");
 
 const newUser = async (
   { email = null, capcha = null }, // optional
@@ -47,7 +46,7 @@ const checkLoginEmailToken = async ({ token = null }) => {
     // new user
     const hasedPassword = await bcrypt.hash(email, 10);
     // step 3 create new user
-    const newUser = await createUser({
+    const newUser = await userModel.create({
       user_slug: "xxxxx",
       user_name: email,
       user_password: hasedPassword,
@@ -146,7 +145,7 @@ const createNewUserV2 = async ({ email, password }) => {
 
   // 6. Create access + refresh token pair
   const tokens = await createTokenPair(
-    { userId: newUser._id, email },
+    { userId: newUser._id, email, role: "customer", type: "user" },
     publicKey,
     privateKey,
   );
@@ -187,7 +186,7 @@ const loginUserV2 = async ({ email, password }) => {
 
   // 4. Create access + refresh token pair
   const tokens = await createTokenPair(
-    { userId: foundUser._id, email },
+    { userId: foundUser._id, email, role: "customer", type: "user" },
     publicKey,
     privateKey,
   );
@@ -210,4 +209,86 @@ const loginUserV2 = async ({ email, password }) => {
   };
 };
 
-module.exports = { newUser, checkLoginEmailToken, createNewUserV2, loginUserV2 };
+// admin function
+const getAllUsers = async ({ limit = 10, page = 1, search = "", status = "" }) => {
+  // convert sang number
+  limit = parseInt(limit) || 10;
+  page = parseInt(page) || 1;
+
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  const normalizedSearch = String(search || "").trim();
+  const normalizedStatus = String(status || "").trim();
+
+  if (normalizedSearch) {
+    filter.$or = [
+      { user_name: { $regex: normalizedSearch, $options: "i" } },
+      { user_email: { $regex: normalizedSearch, $options: "i" } },
+      { user_phone: { $regex: normalizedSearch, $options: "i" } },
+    ];
+  }
+
+  if (["pending", "active", "blocked"].includes(normalizedStatus)) {
+    filter.user_status = normalizedStatus;
+  }
+
+  const total = await userModel.countDocuments(filter);
+
+  const users = await userModel
+    .find(filter)
+    .select("-user_password")
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return {
+    users,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+const getUserById = async (userId) => {
+  const user = await userModel
+    .findOne({ _id: userId })
+    .select("-user_password")
+    .lean();
+
+  if (!user) throw new Error("User not found");
+
+  return user;
+};
+
+const updateUserStatusById = async (userId, status) => {
+  const updatedUser = await userModel
+    .findOneAndUpdate(
+      { _id: userId },
+      {
+        user_status: status,
+      },
+      {
+        new: true,
+      },
+    )
+    .select("-user_password");
+
+  if (!updatedUser) throw new Error("User not found or not role user");
+
+  return updatedUser;
+};
+
+module.exports = {
+  newUser,
+  checkLoginEmailToken,
+  createNewUserV2,
+  loginUserV2,
+  getAllUsers,
+  getUserById,
+  updateUserStatusById,
+};
