@@ -4,9 +4,18 @@ const { setTimeout } = require("timers/promises");
 const { reservationInventory } = require("../model/repositories/inventory.repo");
 const { getRedis } = require("../dbs/init.redis");
 
-const { instanceConnect: redisClient } = getRedis();
-
 const acquireLock = async (productId, quantity, cartId) => {
+  const { instanceConnect: redisClient } = getRedis();
+
+  if (!redisClient) {
+    const isReservation = await reservationInventory({
+      productId,
+      quantity,
+      cartId,
+    });
+    return isReservation.modifiedCount ? `inventory_${productId}` : null;
+  }
+
   const key = `lock_v2025_${productId}`;
 
   const retryTime = 10;
@@ -40,6 +49,8 @@ const acquireLock = async (productId, quantity, cartId) => {
 };
 
 const releaseLock = async (keyLock) => {
+  const { instanceConnect: redisClient } = getRedis();
+  if (!redisClient || keyLock.startsWith("inventory_")) return true;
   return await redisClient.del(keyLock);
 };
 
