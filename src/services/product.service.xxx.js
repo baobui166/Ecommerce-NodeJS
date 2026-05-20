@@ -45,11 +45,24 @@ class ProductFactoryV2 {
   }
 
   static async updateProduct(type, productId, payload) {
-    const productClass = ProductFactoryV2.productRegistry[type];
+    if (type && !ProductFactoryV2.productRegistry[type]) {
+      throw new BadRequestError("Invalid product type ", type);
+    }
 
-    if (!productClass) throw new BadRequestError("Invalid product type ", type);
+    const product_shop = payload.product_shop;
+    const objectParam = removeUndefinedObject({ ...payload });
+    delete objectParam.product_shop;
 
-    return new productClass(payload).updateProduct(productId);
+    const updatedProduct = await updateProductById({
+      product_id: productId,
+      bodyUpdate: updateNestedObject(objectParam),
+      model: product,
+      product_shop,
+    });
+
+    if (!updatedProduct) throw new NotFoundError("Product not found or unauthorized!");
+
+    return updatedProduct;
   }
 
   static async findAllDraftsForShop({ product_shop, limit = 50, skip = 0 }) {
@@ -79,28 +92,64 @@ class ProductFactoryV2 {
     limit = 50,
     sort = "ctime",
     page = 1,
-    filter,
+    product_type,
+    minPrice,
+    maxPrice,
+    search,
+    filter = {},
     isPublic = false,
-    select = ["product_name", "product_price", "product_thumb", "product_shop"],
+    product_shop,
+    select = [],
   }) {
+    const query = { ...filter };
+    if (isPublic) query.isPublish = true;
+    if (product_type) query.product_type = product_type;
+    if (minPrice || maxPrice) {
+      query.product_price = {};
+      if (minPrice) query.product_price.$gte = Number(minPrice);
+      if (maxPrice) query.product_price.$lte = Number(maxPrice);
+    }
+    if (search) {
+      query.$or = [
+        { product_name: { $regex: search, $options: "i" } },
+        { product_descriptions: { $regex: search, $options: "i" } },
+      ];
+    }
+
     if (isPublic) {
       return await findAllProducts({
         limit,
         sort,
         page,
-        filter: { isPulished: true },
-        select: select,
+        filter: query,
+        select,
       });
     }
     return await findAllProductsAdmin({
       limit,
       sort,
       page,
+      filter: {
+        ...(product_shop ? { product_shop } : {}),
+      },
     });
   }
 
   static async findProduct({ product_id }) {
-    return await findProduct({ product_id, unSelect: ["__v"] });
+    const normalizedProductId = String(product_id || "").trim();
+
+    if (!Types.ObjectId.isValid(normalizedProductId)) {
+      throw new BadRequestError("Invalid product id", 400);
+    }
+
+    const foundProduct = await findProduct({
+      product_id: normalizedProductId,
+      unSelect: ["__v"],
+    });
+
+    if (!foundProduct) throw new NotFoundError("Product not found");
+
+    return foundProduct;
   }
 
   static getAllProductTypes() {
@@ -111,11 +160,15 @@ class ProductFactoryV2 {
     const foundProduct = await product.findOne({
       _id: new Types.ObjectId(product_id),
       product_shop: new Types.ObjectId(product_shop),
+      isDeleted: { $ne: true },
     });
 
     if (!foundProduct) throw new NotFoundError("Product not found or unauthorized!");
 
-    await product.delete({ _id: new Types.ObjectId(product_id) });
+    await product.updateOne(
+      { _id: new Types.ObjectId(product_id) },
+      { $set: { isDeleted: true, isDraft: true, isPublish: false } },
+    );
     return { message: "Product deleted successfully!" };
   }
 }
@@ -131,6 +184,7 @@ class Product {
     product_type,
     product_shop,
     product_attributes,
+    product_images,
   }) {
     this.product_name = product_name;
     this.product_thumb = product_thumb;
@@ -140,16 +194,17 @@ class Product {
     this.product_type = product_type;
     this.product_shop = product_shop;
     this.product_attributes = product_attributes;
+    this.product_images = product_images || [];
   }
 
   //create new product
   async createProduct(product_id) {
-    const newProduct = product.create({ ...this, _id: product_id });
+    const newProduct = await product.create({ ...this, _id: product_id });
 
     if (newProduct) {
       // add product_ids in inventory collection
       await insertInventory({
-        product_id: newProduct._id,
+        productId: newProduct._id,
         shopId: this.product_shop,
         stock: this.product_quantity,
       });
@@ -201,7 +256,7 @@ class Clothing extends Product {
     if (objectParam.product_attributes) {
       // update child
       await updateProductById({
-        productId,
+        product_id: productId,
         bodyUpdate: updateNestedObject(objectParam.product_attributes),
         model: clothing,
       });

@@ -10,7 +10,11 @@ const router = express.Router();
 /////// Authentication ///////
 //router.use(authentication);
 /////////////////////////////
-router.post("/product", asyncHandler(uploadController.uploadImage));
+router.post(
+  "/product",
+  uploadMemory.single("file"),
+  asyncHandler(uploadController.uploadImage),
+);
 router.post(
   "/product/thumb",
   uploadDisk.single("file"),

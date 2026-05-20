@@ -95,10 +95,15 @@ class ProductController {
   };
 
   findAllProducts = async (req, res, next) => {
-    const isPublic = !req.headers["x-client-id"];
+    const shopId = req.headers["x-client-id"];
+    const isPublic = !shopId;
     new SuccessResponse({
       message: "Get list findAllProduct success!!!",
-      metadata: await ProductServiceV2.findAllProducts({ ...req.query, isPublic }),
+      metadata: await ProductServiceV2.findAllProducts({
+        ...req.query,
+        isPublic,
+        product_shop: shopId,
+      }),
     }).send(res);
   };
 

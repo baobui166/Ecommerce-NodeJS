@@ -17,6 +17,10 @@ var productSchema = new Schema(
       type: String,
       require: true,
     },
+    product_images: {
+      type: [String],
+      default: [],
+    },
     product_descriptions: {
       type: String,
     },
@@ -55,8 +59,10 @@ var productSchema = new Schema(
     },
 
     product_variations: { type: Array, default: [] },
+    product_sold: { type: Number, default: 0 },
     isDraft: { type: Boolean, default: true, index: true, select: true },
-    isPublish: { type: Boolean, default: false, index: true, select: false },
+    isPublish: { type: Boolean, default: false, index: true, select: true },
+    isDeleted: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, collection: COLECTION_NAME },
 );
