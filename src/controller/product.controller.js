@@ -94,6 +94,23 @@ class ProductController {
     }).send(res);
   };
 
+  getProductSuggestions = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get product suggestions success!!!",
+      metadata: await ProductServiceV2.suggestProducts(req.query),
+    }).send(res);
+  };
+
+  getInventoryAlerts = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get inventory alerts success!!!",
+      metadata: await ProductServiceV2.getInventoryAlerts({
+        shopId: req.user.userId,
+        threshold: req.query.threshold,
+      }),
+    }).send(res);
+  };
+
   findAllProducts = async (req, res, next) => {
     const shopId = req.headers["x-client-id"];
     const isPublic = !shopId;
@@ -104,6 +121,27 @@ class ProductController {
         isPublic,
         product_shop: shopId,
       }),
+    }).send(res);
+  };
+
+  getHomeSections = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get product home sections success!!!",
+      metadata: await ProductServiceV2.getHomeSections(req.query),
+    }).send(res);
+  };
+
+  getFeaturedProducts = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get featured products success!!!",
+      metadata: await ProductServiceV2.findFeaturedProducts(req.query),
+    }).send(res);
+  };
+
+  getCustomerFavoriteProducts = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get customer favorite products success!!!",
+      metadata: await ProductServiceV2.findCustomerFavoriteProducts(req.query),
     }).send(res);
   };
 

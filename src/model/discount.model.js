@@ -18,8 +18,8 @@ var discountSchema = new Schema(
     discount_max_uses: { type: Number, required: true }, // quantities discount will use
     discount_uses_count: { type: Number, required: true }, // quantities used
     discount_users_count: { type: Array, default: [] }, // who use discount
-    discount_max_uses_per_users: { type: Array, default: [] }, // maximum people will use it
-    discount_min_order_value: { type: Array, default: [] }, // min value of order for apply discount
+    discount_max_uses_per_users: { type: Number, default: 0 }, // maximum usage per user
+    discount_min_order_value: { type: Number, default: 0 }, // min value of order for apply discount
     discount_shopId: { type: Schema.Types.ObjectId, ref: "Shop" },
     discount_is_active: {
       type: Boolean,
@@ -37,6 +37,14 @@ var discountSchema = new Schema(
   },
   { timestamps: true, collection: COLLECTION_NAME },
 );
+
+discountSchema.index({ discount_shopId: 1, createdAt: -1 });
+discountSchema.index({
+  discount_is_active: 1,
+  discount_start_date: 1,
+  discount_end_date: 1,
+});
+discountSchema.index({ discount_shopId: 1, discount_code: 1 });
 
 // Export the model
 module.exports = model(DOCUMENT_NAME, discountSchema);

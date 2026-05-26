@@ -14,6 +14,7 @@ router.get(
   "/list_product_code",
   asyncHandler(discountController.getAllDiscountCodeWithProducts),
 );
+router.get("/public", asyncHandler(discountController.getPublicDiscounts));
 
 /////// Authentication ///////
 router.post(
@@ -27,6 +28,24 @@ router.get(
   authentication,
   requireAdmin,
   asyncHandler(discountController.getAllDiscountCode),
+);
+router.get(
+  "/analytics",
+  authentication,
+  requireAdmin,
+  asyncHandler(discountController.getPromotionAnalytics),
+);
+router.patch(
+  "/:id",
+  authentication,
+  requireAdmin,
+  asyncHandler(discountController.updateDiscountCode),
+);
+router.delete(
+  "/:id",
+  authentication,
+  requireAdmin,
+  asyncHandler(discountController.deleteDiscountCode),
 );
 
 module.exports = router;

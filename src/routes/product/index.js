@@ -5,14 +5,26 @@ const { authentication } = require("../../auth/authUtils");
 const { requireAdmin } = require("../../middlewares/admin.middleware");
 const { asyncHandler } = require("../../helpers/asyncHandler");
 const productController = require("../../controller/product.controller");
+const { searchLimiter } = require("../../middlewares/rateLimit.middleware");
 const router = express.Router();
 
 router.post(
   "/search/:keySearch",
+  searchLimiter,
   asyncHandler(productController.getListSearchProductByUser),
 );
+router.get("/suggestions", searchLimiter, asyncHandler(productController.getProductSuggestions));
 router.get("/", asyncHandler(productController.findAllProducts));
 router.get("/types", asyncHandler(productController.getAllProductTypes));
+router.get("/home-sections", asyncHandler(productController.getHomeSections));
+router.get("/featured", asyncHandler(productController.getFeaturedProducts));
+router.get("/favorites", asyncHandler(productController.getCustomerFavoriteProducts));
+router.get(
+  "/inventory/alerts",
+  authentication,
+  requireAdmin,
+  asyncHandler(productController.getInventoryAlerts),
+);
 //QUERY
 router.get(
   "/drafts/all",

@@ -9,6 +9,16 @@ const ShopService = require("../../services/shop.service");
 const router = express.Router();
 
 router.get(
+  "/public-settings",
+  asyncHandler(async (req, res) => {
+    new SuccessResponse({
+      message: "Get public shop settings success!",
+      metadata: await ShopService.getPublicSettings(),
+    }).send(res);
+  }),
+);
+
+router.get(
   "/settings",
   authentication,
   requireAdmin,

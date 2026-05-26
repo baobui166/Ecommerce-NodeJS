@@ -46,7 +46,7 @@ class AccessService {
     const publicKey = crypto.randomBytes(68).toString("hex");
     const privateKey = crypto.randomBytes(68).toString("hex");
     const tokens = await createTokenPair(
-      { userId: foundShop._id, email },
+      { userId: foundShop._id, email, role: "admin", type: "shop" },
       publicKey,
       privateKey,
     );
@@ -188,8 +188,6 @@ class AccessService {
     const foundToken =
       await KeyTokenService.findByRefreshTokenUsed(refreshToken);
 
-    console.log("refreshToken in AccessService: ", refreshToken);
-
     if (foundToken) {
       //decode
       const { userId, email } = await verifyToken(
@@ -203,7 +201,6 @@ class AccessService {
 
     const holderToken = await KeyTokenService.findByRefreshToken(refreshToken);
 
-    console.log("hoderToken in service", holderToken);
     if (!holderToken) throw new AuthFailureError("Shop not registered 1");
 
     //verify token
@@ -217,9 +214,12 @@ class AccessService {
     const foundUser = foundShop ? null : await userModel.findOne({ user_email: email }).lean();
     if (!foundShop && !foundUser) throw new AuthFailureError("Account not registered");
 
+    const tokenRole = foundShop ? "admin" : role || "customer";
+    const tokenType = foundShop ? "shop" : type || "user";
+
     // create new token
     const tokens = await createTokenPair(
-      { userId, email, role, type },
+      { userId, email, role: tokenRole, type: tokenType },
       holderToken.publicKey,
       holderToken.privateKey,
     );

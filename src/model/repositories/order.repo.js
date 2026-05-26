@@ -1,9 +1,14 @@
 "use strict";
 
+const { Types } = require("mongoose");
 const { convertToObjectIdMongodb } = require("../../utils");
 const orderModel = require("../order.model");
 const { product } = require("../product.model");
 const userModel = require("../user.model");
+const { parsePagination, buildPagination } = require("../../utils/pagination");
+
+const toObjectIdOrNull = (id) =>
+  Types.ObjectId.isValid(id) ? convertToObjectIdMongodb(id) : null;
 
 // ───────── User-facing queries (used by OrderController) ─────────
 
@@ -14,17 +19,24 @@ const findAllOrderByUserId = async (userId) => {
     .lean();
 };
 
-const findOneOrderByOrderId = async (orderId) => {
-  return await orderModel
-    .findOne({ _id: convertToObjectIdMongodb(orderId) })
-    .lean();
+const findOneOrderByOrderId = async (orderId, userId = null) => {
+  const _id = toObjectIdOrNull(orderId);
+  if (!_id) return null;
+
+  const filter = { _id };
+  if (userId) filter.order_userId = userId;
+
+  return await orderModel.findOne(filter).lean();
 };
 
 const cancelOrderStatusByUser = async (userId, orderId, status) => {
+  const _id = toObjectIdOrNull(orderId);
+  if (!_id) return null;
+
   return await orderModel
     .findOneAndUpdate(
       {
-        _id: convertToObjectIdMongodb(orderId),
+        _id,
         order_userId: userId,
         order_status: "pending", // chỉ huỷ được khi đang pending
       },
@@ -35,7 +47,10 @@ const cancelOrderStatusByUser = async (userId, orderId, status) => {
 };
 
 const changeOrderStatusByAdmin = async (orderId, status, shopId) => {
-  const filter = { _id: convertToObjectIdMongodb(orderId) };
+  const _id = toObjectIdOrNull(orderId);
+  if (!_id) return null;
+
+  const filter = { _id };
   if (shopId) {
     filter.order_shopId = shopId;
   }
@@ -48,34 +63,38 @@ const changeOrderStatusByAdmin = async (orderId, status, shopId) => {
 // ───────── Admin-facing queries (used by OrderController) ─────────
 
 const findAllOrders = async ({ limit = 20, page = 1 }) => {
-  const skip = (page - 1) * limit;
+  const pagination = parsePagination({ page, limit, defaultLimit: 20, maxLimit: 100 });
 
   const [orders, total] = await Promise.all([
-    orderModel.find({}).sort({ createdOn: -1 }).skip(skip).limit(limit).lean(),
+    orderModel
+      .find({})
+      .sort({ createdOn: -1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit)
+      .lean(),
     orderModel.countDocuments({}),
   ]);
 
   return {
     orders,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination: buildPagination({ ...pagination, total }),
   };
 };
 
 const findOrderById = async (orderId) => {
-  return await orderModel
-    .findOne({ _id: convertToObjectIdMongodb(orderId) })
-    .lean();
+  const _id = toObjectIdOrNull(orderId);
+  if (!_id) return null;
+
+  return await orderModel.findOne({ _id }).lean();
 };
 
 const updateOrderStatusById = async (orderId, status) => {
+  const _id = toObjectIdOrNull(orderId);
+  if (!_id) return null;
+
   return await orderModel
     .findOneAndUpdate(
-      { _id: convertToObjectIdMongodb(orderId) },
+      { _id },
       { $set: { order_status: status } },
       { new: true },
     )

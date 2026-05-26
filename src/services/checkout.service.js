@@ -14,6 +14,36 @@ const { checkProductByServer } = require("../model/repositories/product.repo");
 const DiscountService = require("./discount.service");
 const { acquireLock, releaseLock } = require("./redis.service");
 const { publishEvent } = require("./eventBus.service");
+const ShopService = require("./shop.service");
+
+const toSafeNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : fallback;
+};
+
+const resolveShippingMethod = async ({ subtotal, requestedMethodId }) => {
+  const settings = await ShopService.getPublicSettings();
+  const methodId = String(requestedMethodId || "standard").toLowerCase();
+  const standardFee = toSafeNumber(settings.shipping_standard_fee, 30000);
+  const expressFee = toSafeNumber(settings.shipping_express_fee, 60000);
+  const expressMinOrder = toSafeNumber(settings.shipping_express_min_order, 200000);
+  const freeThreshold = toSafeNumber(settings.free_shipping_threshold, 0);
+
+  if (
+    methodId === "free" &&
+    settings.shipping_free_enabled &&
+    freeThreshold > 0 &&
+    subtotal >= freeThreshold
+  ) {
+    return { id: "free", label: "Free Shipping", fee: 0 };
+  }
+
+  if (methodId === "express" && subtotal >= expressMinOrder) {
+    return { id: "express", label: "Express Delivery", fee: expressFee };
+  }
+
+  return { id: "standard", label: "Standard Delivery", fee: standardFee };
+};
 
 class CheckoutService {
   /*
@@ -140,6 +170,18 @@ class CheckoutService {
         userId,
         shop_order_ids: shop_order_ids,
       });
+    const shippingMethod = await resolveShippingMethod({
+      subtotal: checkout_order.totalCheckout,
+      requestedMethodId: user_address.shippingMethodId,
+    });
+    checkout_order.feeShip = shippingMethod.fee;
+    checkout_order.totalCheckout += shippingMethod.fee;
+    const normalizedShippingAddress = {
+      ...user_address,
+      shippingMethodId: shippingMethod.id,
+      shippingMethodLabel: shippingMethod.label,
+      shippingFee: shippingMethod.fee,
+    };
 
     // check lai 1 lan nua xem co vuot kho hay khong
     // get new array
@@ -165,7 +207,7 @@ class CheckoutService {
       order_userId: userId,
       order_shopId: shop_order_ids_new[0]?.shopId,
       order_checkout: checkout_order,
-      order_shipping: user_address,
+      order_shipping: normalizedShippingAddress,
       order_payment: {
         method: user_payment.method || "COD",
         status: user_payment.method === "ONLINE_MOCK" ? "paid_mock" : "pending",
@@ -219,7 +261,7 @@ class CheckoutService {
   */
 
   static async getOneOrderByUser({ userId, orderId }) {
-    const foundOrder = await findOneOrderByOrderId(orderId);
+    const foundOrder = await findOneOrderByOrderId(orderId, userId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
     return foundOrder;
@@ -230,10 +272,20 @@ class CheckoutService {
   */
 
   static async cancelOrderByUser({ userId, orderId, status = "cancelled" }) {
-    const foundOrder = await findOneOrderByOrderId(orderId);
+    const foundOrder = await findOneOrderByOrderId(orderId, userId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return await cancelOrderStatusByUser(userId, orderId, status);
+    const updated = await cancelOrderStatusByUser(userId, orderId, status);
+    if (updated) {
+      publishEvent({
+        type: "order.status_changed",
+        userId: updated.order_userId,
+        orderId: updated._id,
+        metadata: { status: updated.order_status },
+      }).catch(() => {});
+    }
+
+    return updated;
   }
 
   /*  
@@ -244,7 +296,17 @@ class CheckoutService {
     const foundOrder = await findOneOrderByOrderId(orderId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    return await changeOrderStatusByAdmin(orderId, status, shopId);
+    const updated = await changeOrderStatusByAdmin(orderId, status, shopId);
+    if (updated) {
+      publishEvent({
+        type: "order.status_changed",
+        userId: updated.order_userId,
+        orderId: updated._id,
+        metadata: { status: updated.order_status },
+      }).catch(() => {});
+    }
+
+    return updated;
   }
 }
 

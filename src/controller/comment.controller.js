@@ -6,22 +6,42 @@ const CommentService = require("../services/comment.service");
 class CommentController {
   createComment = async (req, res, next) => {
     new SuccessResponse({
-      message: "Create new comment success",
-      metadata: await CommentService.createComment(req.body),
+      message: "Create product review success",
+      metadata: await CommentService.createComment({
+        ...req.body,
+        userId: req.user.userId,
+      }),
     }).send(res);
   };
 
-  getAllCommentByParentCommentId = async (req, res, next) => {
+  getProductReviews = async (req, res, next) => {
     new SuccessResponse({
-      message: "Get all comment by parent comment id success",
-      metadata: await CommentService.getCommentByParentId(req.query),
+      message: "Get product reviews success",
+      metadata: await CommentService.getProductReviews({
+        productId: req.params.productId,
+        ...req.query,
+      }),
+    }).send(res);
+  };
+
+  updateComment = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Update product review success",
+      metadata: await CommentService.updateComment({
+        commentId: req.params.commentId,
+        ...req.body,
+        userId: req.user.userId,
+      }),
     }).send(res);
   };
 
   deleteComment = async (req, res, next) => {
     new SuccessResponse({
-      message: "Delete comment success",
-      metadata: await CommentService.deleteComment(req.body),
+      message: "Delete product review success",
+      metadata: await CommentService.deleteComment({
+        commentId: req.params.commentId,
+        userId: req.user.userId,
+      }),
     }).send(res);
   };
 }

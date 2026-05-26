@@ -7,13 +7,17 @@ const {
   checkLoginEmailToken,
   createNewUserV2,
   loginUserV2,
+  loginWithGoogle,
+  requestAccountVerification,
+  confirmAccountVerification,
   getAllUsers,
   getUserById,
   updateUserStatusById,
 } = require("../services/user.service");
 const { publishEvent } = require("../services/eventBus.service");
 
-const REFRESH_TOKEN_COOKIE = "refreshToken";
+const LEGACY_REFRESH_TOKEN_COOKIE = "refreshToken";
+const REFRESH_TOKEN_COOKIE = "userRefreshToken";
 const refreshCookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -21,6 +25,13 @@ const refreshCookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 };
+
+const toAccessOnlyAuth = (result) => ({
+  ...result,
+  tokens: {
+    accessToken: result.tokens.accessToken,
+  },
+});
 
 class UserController {
   // new user
@@ -44,6 +55,30 @@ class UserController {
     }).send(res);
   };
 
+  requestAccountVerification = async (req, res, next) => {
+    const { email } = req.body;
+    if (!email) {
+      throw new BadRequestError("Email is required!");
+    }
+
+    new SuccessResponse({
+      message: "Verification email sent",
+      metadata: await requestAccountVerification({ email }),
+    }).send(res);
+  };
+
+  confirmAccountVerification = async (req, res, next) => {
+    const token = req.body.token || req.query.token;
+    if (!token) {
+      throw new BadRequestError("Verification code is required!");
+    }
+
+    new SuccessResponse({
+      message: "Account verified successfully",
+      metadata: await confirmAccountVerification({ token }),
+    }).send(res);
+  };
+
   upLoadImageFromUrl = async (req, res, next) => {
     new SuccessResponse({
       message: "Upload file success!!!!",
@@ -59,6 +94,7 @@ class UserController {
     }
     const result = await createNewUserV2({ email, password });
     res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
     publishEvent({
       type: "user.registered",
       userId: result.user._id,
@@ -66,7 +102,7 @@ class UserController {
     }).catch(() => {});
     new SuccessResponse({
       message: "User registered successfully",
-      metadata: result,
+      metadata: toAccessOnlyAuth(result),
     }).send(res);
   };
 
@@ -78,13 +114,46 @@ class UserController {
     }
     const result = await loginUserV2({ email, password });
     res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
     new SuccessResponse({
       message: "Login successfully",
-      metadata: result,
+      metadata: toAccessOnlyAuth(result),
     }).send(res);
   };
 
   // ── Admin methods ─────────────────────────────────────────────────────────────
+
+  googleLogin = async (req, res, next) => {
+    const { credential } = req.body;
+    if (!credential) {
+      throw new BadRequestError("Google credential is required!");
+    }
+
+    const result = await loginWithGoogle({ credential });
+    res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
+
+    if (result.isNewUser) {
+      publishEvent({
+        type: "user.registered",
+        userId: result.user._id,
+        metadata: {
+          email: result.user.user_email,
+          provider: "google",
+        },
+      }).catch(() => {});
+    }
+
+    new SuccessResponse({
+      message: "Google login successfully",
+      metadata: {
+        user: result.user,
+        tokens: {
+          accessToken: result.tokens.accessToken,
+        },
+      },
+    }).send(res);
+  };
 
   // GET /v1/api/user?limit=20&page=1
   getAllUsers = async (req, res, next) => {

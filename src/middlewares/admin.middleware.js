@@ -1,14 +1,33 @@
 "use strict";
 
 const { ForbiddenError } = require("../core/error.response");
+const shopModel = require("../model/shop.model");
 
-const requireAdmin = (req, res, next) => {
-  const role = req.user?.role;
-  const type = req.user?.type;
+const ADMIN_ROLES = ["ADMIN", "SHOP"];
 
-  if (role === "admin" || type === "shop") return next();
+const requireAdmin = async (req, res, next) => {
+  try {
+    const role = req.user?.role;
+    const type = req.user?.type;
 
-  throw new ForbiddenError("Admin permission required");
+    if (role === "admin" || type === "shop") return next();
+
+    const userId = req.user?.userId;
+    if (userId) {
+      const shop = await shopModel
+        .findById(userId)
+        .select("roles")
+        .lean();
+      const roles = shop?.roles || [];
+      if (roles.some((shopRole) => ADMIN_ROLES.includes(shopRole))) {
+        return next();
+      }
+    }
+
+    throw new ForbiddenError("Admin permission required");
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = { requireAdmin };

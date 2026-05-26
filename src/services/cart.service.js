@@ -19,7 +19,9 @@ class CartService {
   static async createUserCart({ userId, product }) {
     const query = { cart_userId: userId, cart_state: "active" },
       updateOrInsert = {
-        $addToSet: { cart_products: product },
+        $setOnInsert: { cart_userId: userId, cart_state: "active" },
+        $push: { cart_products: product },
+        $inc: { cart_count_product: 1 },
       },
       options = { upsert: true, new: true };
 
@@ -40,15 +42,37 @@ class CartService {
       updateSet = {
         $inc: { "cart_products.$.quantity": quantity },
       },
-      options = { upsert: true, new: true };
+      options = { new: true };
+
+    return await cartModel.cart.findOneAndUpdate(query, updateSet, options);
+  }
+
+  static async addNewProductToCart({ userId, product }) {
+    const query = {
+        cart_userId: userId,
+        cart_state: "active",
+        "cart_products.productId": { $ne: product.productId },
+      },
+      updateSet = {
+        $push: { cart_products: product },
+        $inc: { cart_count_product: 1 },
+      },
+      options = { new: true };
 
     return await cartModel.cart.findOneAndUpdate(query, updateSet, options);
   }
   ///END REPO CART///
 
   static async addToCart(userId, product = {}) {
+    if (!product.productId) {
+      throw new NotFoundError("Product id is required");
+    }
+
     //check cart co ton tai hay khong
-    const userCart = await cartModel.cart.findOne({ cart_userId: userId });
+    const userCart = await cartModel.cart.findOne({
+      cart_userId: userId,
+      cart_state: "active",
+    });
     if (!userCart) {
       return await CartService.createUserCart({ userId, product });
     }
@@ -56,11 +80,19 @@ class CartService {
     // neu co gio hang nhung chua co san pham
     if (!userCart.cart_products.length) {
       userCart.cart_products = [product];
+      userCart.cart_count_product = 1;
       return await userCart.save();
     }
 
-    // neu cos san pham do trong gio hang thi update quantity
-    return CartService.updateUserCartQuantity({ userId, product });
+    const hasProduct = userCart.cart_products.some(
+      (item) => String(item.productId) === String(product.productId),
+    );
+
+    if (hasProduct) {
+      return CartService.updateUserCartQuantity({ userId, product });
+    }
+
+    return CartService.addNewProductToCart({ userId, product });
   }
 
   // update cart
@@ -107,10 +139,27 @@ class CartService {
   }
 
   static async deleteUserCart({ userId, productId }) {
+    const existingCart = await cartModel.cart.findOne({
+      cart_userId: userId,
+      cart_state: "active",
+      "cart_products.productId": productId,
+    });
+
+    if (!existingCart) return null;
+
     const query = { cart_userId: userId, cart_state: "active" },
       updateSet = { $pull: { cart_products: { productId } } };
 
-    const deleteCart = await cartModel.cart.updateOne(query, updateSet);
+    const deleteCart = await cartModel.cart.findOneAndUpdate(
+      query,
+      updateSet,
+      { new: true },
+    );
+
+    if (deleteCart) {
+      deleteCart.cart_count_product = deleteCart.cart_products.length;
+      await deleteCart.save();
+    }
 
     return deleteCart;
   }

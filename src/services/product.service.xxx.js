@@ -15,7 +15,11 @@ const {
   findAllPublishForShop,
   unpublishProductByShop,
   searchProduct,
+  suggestProducts,
+  findInventoryAlerts,
   findAllProducts,
+  findFeaturedProducts,
+  findCustomerFavoriteProducts,
   findAllProductsAdmin,
   findProduct,
   updateProductById,
@@ -88,6 +92,16 @@ class ProductFactoryV2 {
     return await searchProduct({ keySearch });
   }
 
+  static async suggestProducts({ search, limit }) {
+    return {
+      suggestions: await suggestProducts({ search, limit }),
+    };
+  }
+
+  static async getInventoryAlerts({ shopId, threshold }) {
+    return await findInventoryAlerts({ shopId, threshold });
+  }
+
   static async findAllProducts({
     limit = 50,
     sort = "ctime",
@@ -96,6 +110,7 @@ class ProductFactoryV2 {
     minPrice,
     maxPrice,
     search,
+    stockStatus,
     filter = {},
     isPublic = false,
     product_shop,
@@ -131,8 +146,68 @@ class ProductFactoryV2 {
       page,
       filter: {
         ...(product_shop ? { product_shop } : {}),
+        ...(product_type ? { product_type } : {}),
+        ...(search
+          ? {
+              $or: [
+                { product_name: { $regex: search, $options: "i" } },
+                { product_descriptions: { $regex: search, $options: "i" } },
+              ],
+            }
+          : {}),
+        ...(stockStatus === "low"
+          ? { product_quantity: { $gt: 0, $lte: 5 } }
+          : {}),
+        ...(stockStatus === "out" ? { product_quantity: { $lte: 0 } } : {}),
       },
     });
+  }
+
+  static async findFeaturedProducts({ limit = 5 } = {}) {
+    return {
+      products: await findFeaturedProducts({ limit }),
+      criteria: [
+        "published only",
+        "in stock",
+        "shop featured signal",
+        "review count",
+        "sold count",
+        "newest first fallback",
+      ],
+    };
+  }
+
+  static async findCustomerFavoriteProducts({ limit = 5, excludeIds = [] } = {}) {
+    return {
+      products: await findCustomerFavoriteProducts({ limit, excludeIds }),
+      criteria: [
+        "published only",
+        "in stock",
+        "rating average",
+        "verified review count",
+        "sold count",
+      ],
+    };
+  }
+
+  static async getHomeSections({ limit = 5 } = {}) {
+    const perSectionLimit = Math.min(Math.max(Number(limit) || 5, 1), 20);
+    const featured = await ProductFactoryV2.findFeaturedProducts({
+      limit: perSectionLimit,
+    });
+    const customerFavorites = await ProductFactoryV2.findCustomerFavoriteProducts({
+      limit: perSectionLimit,
+      excludeIds: featured.products.map((item) => item._id),
+    });
+
+    return {
+      featuredProducts: featured.products,
+      customerFavorites: customerFavorites.products,
+      criteria: {
+        featuredProducts: featured.criteria,
+        customerFavorites: customerFavorites.criteria,
+      },
+    };
   }
 
   static async findProduct({ product_id }) {

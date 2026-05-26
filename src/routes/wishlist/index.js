@@ -4,26 +4,33 @@ const express = require("express");
 const { authentication } = require("../../auth/authUtils");
 const { asyncHandler } = require("../../helpers/asyncHandler");
 const { requireActiveUser } = require("../../middlewares/userStatus.middleware");
-const commentController = require("../../controller/comment.controller");
+const wishlistController = require("../../controller/wishlist.controller");
 
 const router = express.Router();
 
 router.get(
-  "/product/:productId",
-  asyncHandler(commentController.getProductReviews),
-);
-router.post("/", authentication, asyncHandler(requireActiveUser), asyncHandler(commentController.createComment));
-router.put(
-  "/:commentId",
+  "/",
   authentication,
   asyncHandler(requireActiveUser),
-  asyncHandler(commentController.updateComment),
+  asyncHandler(wishlistController.getWishlist),
+);
+router.post(
+  "/",
+  authentication,
+  asyncHandler(requireActiveUser),
+  asyncHandler(wishlistController.addProduct),
 );
 router.delete(
-  "/:commentId",
+  "/",
   authentication,
   asyncHandler(requireActiveUser),
-  asyncHandler(commentController.deleteComment),
+  asyncHandler(wishlistController.clearWishlist),
+);
+router.delete(
+  "/:productId",
+  authentication,
+  asyncHandler(requireActiveUser),
+  asyncHandler(wishlistController.removeProduct),
 );
 
 module.exports = router;

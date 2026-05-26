@@ -45,5 +45,9 @@ var orderSchema = new Schema(
   },
 );
 
+orderSchema.index({ createdOn: -1 });
+orderSchema.index({ order_userId: 1, createdOn: -1 });
+orderSchema.index({ order_shopId: 1, order_status: 1, createdOn: -1 });
+
 // Export the model
 module.exports = model(DOCUMENT_NAME, orderSchema);

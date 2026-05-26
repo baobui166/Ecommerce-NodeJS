@@ -1,165 +1,266 @@
 "use strict";
 
-const { BadRequestError, NotFoundError } = require("../core/error.response");
+const { Types } = require("mongoose");
+const {
+  BadRequestError,
+  ConflictRequestError,
+  ForbiddenError,
+  NotFoundError,
+} = require("../core/error.response");
 const commentModel = require("../model/comment.model");
-const { findProduct } = require("../model/repositories/product.repo");
+const orderModel = require("../model/order.model");
+const { product: productModel } = require("../model/product.model");
 const { convertToObjectIdMongodb } = require("../utils");
-/**
- key feature: Comment feature
- - add comment [User, Shop]
- - get list comments [User, shop]
- - delete a comment [User, Shop, Admin]
- */
+const { parsePagination, buildPagination } = require("../utils/pagination");
+
+const MAX_REVIEW_CONTENT_LENGTH = 1000;
+
+const normalizeId = (id, fieldName) => {
+  if (!id || !Types.ObjectId.isValid(id)) {
+    throw new BadRequestError(`Invalid ${fieldName}`, 400);
+  }
+
+  return convertToObjectIdMongodb(id);
+};
+
+const normalizeContent = (content) => {
+  const normalized = String(content || "").trim();
+
+  if (!normalized) {
+    throw new BadRequestError("Review content is required", 400);
+  }
+
+  if (normalized.length > MAX_REVIEW_CONTENT_LENGTH) {
+    throw new BadRequestError("Review content must be at most 1000 characters", 400);
+  }
+
+  return normalized;
+};
+
+const normalizeRating = (rating) => {
+  const normalized = Number(rating);
+
+  if (!Number.isInteger(normalized) || normalized < 1 || normalized > 5) {
+    throw new BadRequestError("Review rating must be an integer from 1 to 5", 400);
+  }
+
+  return normalized;
+};
+
+const orderContainsProduct = (order, productId) =>
+  (order.order_products || []).some((shopOrder) =>
+    (shopOrder.item_products || []).some(
+      (item) => String(item.productId) === String(productId),
+    ),
+  );
+
 class CommentService {
-  static async createComment({
-    productId,
-    userId,
-    content,
-    parentCommentId = null,
-  }) {
-    const comment = new commentModel({
-      comment_productId: productId,
-      comment_user: userId,
-      comment_content: content,
-      comment_parentId: parentCommentId,
+  static async recalculateProductRating(productId) {
+    const productObjectId = normalizeId(productId, "productId");
+    const [summary] = await commentModel.aggregate([
+      {
+        $match: {
+          comment_productId: productObjectId,
+          isDeleted: false,
+          comment_orderId: { $exists: true },
+          comment_rating: { $gte: 1, $lte: 5 },
+        },
+      },
+      {
+        $group: {
+          _id: "$comment_productId",
+          averageRating: { $avg: "$comment_rating" },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    await productModel.findByIdAndUpdate(productObjectId, {
+      $set: {
+        product_ratingAverage: summary?.averageRating || 0,
+        product_reviewCount: summary?.reviewCount || 0,
+      },
     });
-
-    let rightValue;
-
-    if (parentCommentId) {
-      // rely comment
-      const parentComment = await commentModel.findById(parentCommentId);
-
-      if (!parentComment) throw new BadRequestError("parent comment not found");
-
-      rightValue = parentComment.comment_right;
-
-      // update comments
-
-      await commentModel.updateMany(
-        {
-          comment_productId: convertToObjectIdMongodb(productId),
-          comment_right: { $gte: rightValue },
-        },
-        { $inc: { comment_right: 2 } },
-      );
-
-      await commentModel.updateMany(
-        {
-          comment_productId: convertToObjectIdMongodb(productId),
-          comment_left: { $gte: rightValue },
-        },
-        { $inc: { comment_left: 2 } },
-      );
-    } else {
-      const maxRightValue = await commentModel.findOne(
-        {
-          comment_productId: convertToObjectIdMongodb(productId),
-        },
-        "comment_right",
-        { sort: { comment_right: -1 } },
-      );
-
-      if (maxRightValue) {
-        rightValue = maxRightValue.right + 1;
-      } else {
-        rightValue = 1;
-      }
-    }
-
-    // insert to comment
-
-    comment.comment_left = rightValue;
-    comment.comment_right = rightValue + 1;
-
-    await comment.save();
-    return comment;
   }
 
-  static async getCommentByParentId({
-    parentCommentId = null,
-    productId,
-    limit = 50,
-    offset = 0, // skip
-  }) {
-    if (parentCommentId) {
-      const parent = await commentModel.findById(parentCommentId);
+  static async assertDeliveredPurchase({ userId, productId, orderId }) {
+    const userObjectId = normalizeId(userId, "userId");
+    const productObjectId = normalizeId(productId, "productId");
+    const orderObjectId = normalizeId(orderId, "orderId");
 
-      if (!parent)
-        throw new NotFoundError("Parent not found comment for product");
+    const order = await orderModel
+      .findOne({
+        _id: orderObjectId,
+        order_userId: userObjectId,
+        order_status: "delivered",
+      })
+      .lean();
 
-      const comments = await commentModel
-        .find({
-          comment_productId: convertToObjectIdMongodb(productId),
-          comment_left: { $gt: parent.comment_left },
-          comment_right: { $lte: parent.comment_right },
-        })
-        .select({
-          comment_left: 1,
-          comment_right: 1,
-          comment_content: 1,
-          comment_parentId: 1,
-        })
-        .sort({ comment_left: 1 });
-
-      return comments;
+    if (!order || !orderContainsProduct(order, productObjectId)) {
+      throw new ForbiddenError("Only delivered purchases can be reviewed");
     }
 
-    const comments = await commentModel
-      .find({
-        comment_productId: convertToObjectIdMongodb(productId),
-        comment_parentId: parentCommentId,
-      })
-      .select({
-        comment_left: 1,
-        comment_right: 1,
-        comment_content: 1,
-        comment_parentId: 1,
-      })
-      .sort({ comment_left: 1 });
-
-    return comments;
+    return order;
   }
 
-  static async deleteComment({ commentId, productId }) {
-    // check product exists in db
-    const foundProduct = await findProduct({ product_id: productId });
+  static async getProductReviews({ productId, page = 1, limit = 10 }) {
+    const productObjectId = normalizeId(productId, "productId");
+    const pagination = parsePagination({ page, limit, defaultLimit: 10, maxLimit: 50 });
 
-    if (!foundProduct) throw new NotFoundError("Product not found");
+    const foundProduct = await productModel
+      .findOne({ _id: productObjectId, isDeleted: { $ne: true } })
+      .select("product_ratingAverage product_reviewCount")
+      .lean();
 
-    // xac dinh gia tri left va right
-    const comment = await commentModel.findById(commentId);
-    if (!comment) throw new NotFoundError("comment not found");
+    if (!foundProduct) {
+      throw new NotFoundError("Product not found");
+    }
 
-    const leftValue = comment.comment_left;
-    const rightValue = comment.comment_right;
+    const filter = {
+      comment_productId: productObjectId,
+      isDeleted: false,
+      comment_orderId: { $exists: true },
+      comment_rating: { $gte: 1, $lte: 5 },
+    };
 
-    // tinh width
-    const width = rightValue - leftValue + 1;
-    // xoa tat ca comment con
+    const [reviews, total, [ratingSummary]] = await Promise.all([
+      commentModel
+        .find(filter)
+        .populate("comment_user", "user_name user_avatar user_email")
+        .sort({ createdAt: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.limit)
+        .lean(),
+      commentModel.countDocuments(filter),
+      commentModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: "$comment_productId",
+            averageRating: { $avg: "$comment_rating" },
+            reviewCount: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
 
-    await commentModel.deleteMany({
-      comment_productId: convertToObjectIdMongodb(productId),
-      comment_left: { $gte: leftValue, $lte: rightValue },
+    return {
+      reviews,
+      summary: {
+        averageRating: ratingSummary?.averageRating || 0,
+        reviewCount: ratingSummary?.reviewCount || total,
+      },
+      pagination: buildPagination({ ...pagination, total }),
+    };
+  }
+
+  static async createComment({ productId, orderId, rating, content, userId }) {
+    const productObjectId = normalizeId(productId, "productId");
+    const userObjectId = normalizeId(userId, "userId");
+    const orderObjectId = normalizeId(orderId, "orderId");
+    const normalizedRating = normalizeRating(rating);
+    const normalizedContent = normalizeContent(content);
+
+    const foundProduct = await productModel.exists({
+      _id: productObjectId,
+      isDeleted: { $ne: true },
     });
 
-    // cap nhat gia tri left right cho cac comment khac
+    if (!foundProduct) {
+      throw new NotFoundError("Product not found");
+    }
 
-    await commentModel.updateMany(
-      {
-        comment_productId: convertToObjectIdMongodb(productId),
-        comment_right: { $gt: rightValue },
-      },
-      { $inc: { comment_right: -width } },
-    );
+    await this.assertDeliveredPurchase({
+      userId: userObjectId,
+      productId: productObjectId,
+      orderId: orderObjectId,
+    });
 
-    await commentModel.updateMany(
-      {
-        comment_productId: convertToObjectIdMongodb(productId),
-        comment_left: { $gt: rightValue },
-      },
-      { $inc: { comment_left: -width } },
-    );
+    const existedReview = await commentModel.findOne({
+      comment_productId: productObjectId,
+      comment_user: userObjectId,
+      isDeleted: false,
+    });
+
+    if (existedReview) {
+      throw new ConflictRequestError("You have already reviewed this product", 409);
+    }
+
+    const review = await commentModel.create({
+      comment_productId: productObjectId,
+      comment_user: userObjectId,
+      comment_orderId: orderObjectId,
+      comment_rating: normalizedRating,
+      comment_content: normalizedContent,
+      isVerifiedPurchase: true,
+    });
+
+    await this.recalculateProductRating(productObjectId);
+
+    return review.populate("comment_user", "user_name user_avatar user_email");
+  }
+
+  static async updateComment({ commentId, productId, orderId, rating, content, userId }) {
+    const commentObjectId = normalizeId(commentId, "commentId");
+    const userObjectId = normalizeId(userId, "userId");
+    const normalizedRating = normalizeRating(rating);
+    const normalizedContent = normalizeContent(content);
+
+    const review = await commentModel.findOne({
+      _id: commentObjectId,
+      isDeleted: false,
+    });
+
+    if (!review) {
+      throw new NotFoundError("Review not found");
+    }
+
+    if (String(review.comment_user) !== String(userObjectId)) {
+      throw new ForbiddenError("You can only update your own review");
+    }
+
+    if (productId && String(review.comment_productId) !== String(productId)) {
+      throw new BadRequestError("Product does not match this review", 400);
+    }
+
+    if (orderId && String(review.comment_orderId) !== String(orderId)) {
+      throw new BadRequestError("Order does not match this review", 400);
+    }
+
+    await this.assertDeliveredPurchase({
+      userId: userObjectId,
+      productId: review.comment_productId,
+      orderId: review.comment_orderId,
+    });
+
+    review.comment_rating = normalizedRating;
+    review.comment_content = normalizedContent;
+    await review.save();
+    await this.recalculateProductRating(review.comment_productId);
+
+    return review.populate("comment_user", "user_name user_avatar user_email");
+  }
+
+  static async deleteComment({ commentId, userId }) {
+    const commentObjectId = normalizeId(commentId, "commentId");
+    const userObjectId = normalizeId(userId, "userId");
+
+    const review = await commentModel.findOne({
+      _id: commentObjectId,
+      isDeleted: false,
+    });
+
+    if (!review) {
+      throw new NotFoundError("Review not found");
+    }
+
+    if (String(review.comment_user) !== String(userObjectId)) {
+      throw new ForbiddenError("You can only delete your own review");
+    }
+
+    review.isDeleted = true;
+    await review.save();
+    await this.recalculateProductRating(review.comment_productId);
 
     return true;
   }

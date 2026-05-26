@@ -4,7 +4,9 @@ const { OK, CREATED, SuccessResponse } = require("../core/success.response");
 const AccessService = require("../services/access.service");
 
 // ── Cookie config ─────────────────────────────────────────────────────────────
-const REFRESH_TOKEN_COOKIE = "refreshToken";
+const LEGACY_REFRESH_TOKEN_COOKIE = "refreshToken";
+const USER_REFRESH_TOKEN_COOKIE = "userRefreshToken";
+const ADMIN_REFRESH_TOKEN_COOKIE = "adminRefreshToken";
 
 const refreshCookieOptions = {
   httpOnly: true,                                    // không thể đọc bằng JS
@@ -14,19 +16,29 @@ const refreshCookieOptions = {
   path: "/",
 };
 
+const getRefreshCookieName = (req) =>
+  req.headers["x-auth-kind"] === "admin"
+    ? ADMIN_REFRESH_TOKEN_COOKIE
+    : USER_REFRESH_TOKEN_COOKIE;
+
+const clearRefreshCookies = (res, cookieName) => {
+  res.clearCookie(cookieName, { path: "/" });
+  res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
+};
+
 class AccessController {
   login = async (req, res, next) => {
     const result = await AccessService.login(req.body);
 
     // Set refresh token vào httpOnly cookie
-    res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.cookie(ADMIN_REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
 
     new OK({
       metadata: {
         shop: result.shop,
         tokens: {
           accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken,
         },
       },
     }).send(res);
@@ -34,7 +46,7 @@ class AccessController {
 
   logout = async (req, res, next) => {
     // Xóa refresh token cookie
-    res.clearCookie(REFRESH_TOKEN_COOKIE, { path: "/" });
+    clearRefreshCookies(res, getRefreshCookieName(req));
 
     new OK({
       message: "Logout Success!!!",
@@ -47,7 +59,8 @@ class AccessController {
 
     // Set refresh token vào httpOnly cookie nếu đăng ký thành công
     if (result.metadata?.tokens?.refreshToken) {
-      res.cookie(REFRESH_TOKEN_COOKIE, result.metadata.tokens.refreshToken, refreshCookieOptions);
+      res.cookie(ADMIN_REFRESH_TOKEN_COOKIE, result.metadata.tokens.refreshToken, refreshCookieOptions);
+      res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
     }
 
     new CREATED({
@@ -56,7 +69,6 @@ class AccessController {
         shop: result.metadata?.shop,
         tokens: {
           accessToken: result.metadata?.tokens?.accessToken,
-          refreshToken: result.metadata?.tokens?.refreshToken,
         },
       },
     }).send(res);
@@ -64,12 +76,17 @@ class AccessController {
 
   handlerRefreshToken = async (req, res, next) => {
     // Lấy refresh token từ cookie (ưu tiên) hoặc body (fallback)
-    const refreshToken = req.cookies[REFRESH_TOKEN_COOKIE] || req.body.refreshToken;
+    const cookieName = getRefreshCookieName(req);
+    const refreshToken =
+      req.cookies[cookieName] ||
+      req.cookies[LEGACY_REFRESH_TOKEN_COOKIE] ||
+      req.body.refreshToken;
 
     const result = await AccessService.handleRefreshToken(refreshToken);
 
     // Cập nhật refresh token cookie mới
-    res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.cookie(cookieName, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
 
     new SuccessResponse({
       message: "Get Token success!!!",
@@ -77,7 +94,6 @@ class AccessController {
         user: result.user,
         tokens: {
           accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken,
         },
       },
     }).send(res);
@@ -87,7 +103,8 @@ class AccessController {
     const result = await AccessService.adminLogin(req.body);
 
     // Set refresh token vào httpOnly cookie
-    res.cookie(REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.cookie(ADMIN_REFRESH_TOKEN_COOKIE, result.tokens.refreshToken, refreshCookieOptions);
+    res.clearCookie(LEGACY_REFRESH_TOKEN_COOKIE, { path: "/" });
 
     new OK({
       message: "Admin login success!",
@@ -95,7 +112,6 @@ class AccessController {
         shop: result.shop,
         tokens: {
           accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken,
         },
       },
     }).send(res);

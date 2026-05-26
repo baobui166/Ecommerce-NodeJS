@@ -1,8 +1,11 @@
 "use strict";
 
 const userModel = require("../model/user.model");
-const ErrorResponse = require("../core/error.response");
-const { BadRequestError, AuthFailureError } = require("../core/error.response");
+const {
+  BadRequestError,
+  AuthFailureError,
+  NotFoundError,
+} = require("../core/error.response");
 const { sendEmailToken } = require("./email.service");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -11,87 +14,120 @@ const KeyTokenService = require("./ketToken.service");
 const shopModel = require("../model/shop.model");
 const { createTokenPair } = require("../auth/authUtils");
 const { getInfoData } = require("../utils");
+const { parsePagination, buildPagination } = require("../utils/pagination");
+
+const USER_PUBLIC_FIELDS = [
+  "_id",
+  "user_slug",
+  "user_name",
+  "user_email",
+  "user_phone",
+  "user_sex",
+  "user_avatar",
+  "user_date_of_birth",
+  "user_role",
+  "user_status",
+  "user_authProviders",
+  "user_emailVerified",
+];
+
+const getPublicUser = (user) =>
+  getInfoData({
+    fields: USER_PUBLIC_FIELDS,
+    object: typeof user?.toObject === "function" ? user.toObject() : user,
+  });
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const validateEmail = (email) => {
+  const normalizedEmail = normalizeEmail(email);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
+    throw new BadRequestError("Error: Invalid email format!");
+  }
+
+  return normalizedEmail;
+};
+
+const getAllowedGoogleClientIds = () =>
+  String(process.env.GOOGLE_CLIENT_ID || "")
+    .split(",")
+    .map((clientId) => clientId.trim())
+    .filter(Boolean);
+
+const verifyGoogleCredential = async (credential) => {
+  if (!credential) {
+    throw new BadRequestError("Google credential is required!");
+  }
+
+  const allowedClientIds = getAllowedGoogleClientIds();
+  if (allowedClientIds.length === 0) {
+    throw new BadRequestError("Google login is not configured!");
+  }
+
+  const response = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+  );
+
+  if (!response.ok) {
+    throw new AuthFailureError("Invalid Google credential!");
+  }
+
+  const payload = await response.json();
+  if (!allowedClientIds.includes(payload.aud)) {
+    throw new AuthFailureError("Google credential audience is invalid!");
+  }
+
+  if (payload.email_verified !== true && payload.email_verified !== "true") {
+    throw new AuthFailureError("Google email is not verified!");
+  }
+
+  if (!payload.sub || !payload.email) {
+    throw new AuthFailureError("Google profile is incomplete!");
+  }
+
+  return payload;
+};
+
+const issueUserTokens = async ({ user, email, authProvider = "local" }) => {
+  const publicKey = crypto.randomBytes(68).toString("hex");
+  const privateKey = crypto.randomBytes(68).toString("hex");
+  const tokens = await createTokenPair(
+    {
+      userId: user._id,
+      email,
+      role: "customer",
+      type: "user",
+      authProvider,
+    },
+    publicKey,
+    privateKey,
+  );
+
+  await KeyTokenService.createKeyToken({
+    userId: user._id,
+    publicKey,
+    privateKey,
+    refreshToken: tokens.refreshToken,
+  });
+
+  return tokens;
+};
 
 const newUser = async (
   { email = null, capcha = null }, // optional
 ) => {
-  // check user exist in database
-  const user = await userModel.findOne({ user_email: email }).lean();
-
-  // if exitst
-  if (user) {
-    return ErrorResponse({ message: "Email already exitst!!!" });
-  }
-
-  // send token via email
-
-  const result = await sendEmailToken({ email });
+  const result = await requestAccountVerification({ email });
 
   return {
-    message: "verify email user.",
-    metadata: { token: result },
+    message: "Verification email sent.",
+    metadata: result,
   };
 };
 
 const checkLoginEmailToken = async ({ token = null }) => {
-  try {
-    // check token in model otp
-    const { otp_email: email, otp_token } = checkEmailToken({ token });
-    if (!email) throw new ErrorResponse("Token not found");
-
-    // check email
-    const hasUser = await findEmailWithLogin({ email });
-    if (hasUser) throw new ErrorResponse("Email already exists");
-
-    // new user
-    const hasedPassword = await bcrypt.hash(email, 10);
-    // step 3 create new user
-    const newUser = await userModel.create({
-      user_slug: "xxxxx",
-      user_name: email,
-      user_password: hasedPassword,
-      user_email: email,
-      user_role: "active",
-    });
-
-    // step 4 check new user and create token
-    if (newUser) {
-      // create pub and private version 2
-      const publicKey = crypto.randomBytes(68).toString("hex");
-      const privateKey = crypto.randomBytes(68).toString("hex");
-
-      const keyStore = await KeyTokenService.createKeyToken({
-        userId: newUser._id,
-        publicKey,
-        privateKey,
-      });
-
-      if (!keyStore) {
-        throw new BadRequestError("Error: Keystore Error!");
-      }
-
-      // create token
-      const tokens = await createTokenPair(
-        { userId: newUser._id, email },
-        publicKey,
-        privateKey,
-      );
-
-      return {
-        code: 201,
-        message: "veryfy successfully",
-        metadata: {
-          user: getInfoData({
-            fields: ["_id", "user_name", "user_email"],
-            object: newUser,
-          }),
-          tokens,
-        },
-      };
-    }
-  } catch (error) {
-    throw new ErrorResponse(`Error create new user: ${error} `);
-  }
+  return confirmAccountVerification({ token });
 };
 
 const findEmailWithLogin = async ({ email }) => {
@@ -99,13 +135,8 @@ const findEmailWithLogin = async ({ email }) => {
   return user;
 };
 
-// V2: Register user with email + password (no OTP verification)
 const createNewUserV2 = async ({ email, password }) => {
-  // 0. Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    throw new BadRequestError("Error: Invalid email format!");
-  }
+  email = validateEmail(email);
 
   // 1. Check email already exists
   const foundUser = await userModel.findOne({ user_email: email }).lean();
@@ -122,51 +153,28 @@ const createNewUserV2 = async ({ email, password }) => {
     user_name: email.split("@")[0],
     user_email: email,
     user_password: hashedPassword,
+    user_authProviders: ["local"],
+    user_emailVerified: false,
+    user_status: "pending",
   });
 
   if (!newUser) {
     throw new BadRequestError("Error: Cannot create new user!");
   }
 
-  // 4. Create RSA key pair for JWT
-  const publicKey = crypto.randomBytes(68).toString("hex");
-  const privateKey = crypto.randomBytes(68).toString("hex");
-
-  // 5. Store key token
-  const keyStore = await KeyTokenService.createKeyToken({
-    userId: newUser._id,
-    publicKey,
-    privateKey,
-  });
-
-  if (!keyStore) {
-    throw new BadRequestError("Error: Keystore creation failed!");
-  }
-
-  // 6. Create access + refresh token pair
-  const tokens = await createTokenPair(
-    { userId: newUser._id, email, role: "customer", type: "user" },
-    publicKey,
-    privateKey,
-  );
+  const tokens = await issueUserTokens({ user: newUser, email });
+  await sendEmailToken({ email }).catch(() => null);
 
   // Controller đã bọc trong SuccessResponse.metadata — không bọc thêm lớp metadata
   return {
-    user: getInfoData({
-      fields: ["_id", "user_slug", "user_name", "user_email", "user_status"],
-      object: newUser,
-    }),
+    user: getPublicUser(newUser),
     tokens,
   };
 };
 
 // V2: Login user with email + password (no OTP)
 const loginUserV2 = async ({ email, password }) => {
-  // 0. Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    throw new BadRequestError("Error: Invalid email format!");
-  }
+  email = validateEmail(email);
 
   // 1. Find user by email
   const foundUser = await userModel.findOne({ user_email: email }).lean();
@@ -174,49 +182,144 @@ const loginUserV2 = async ({ email, password }) => {
     throw new AuthFailureError("Error: Email not registered!");
   }
 
+  if (foundUser.user_status === "blocked") {
+    throw new AuthFailureError("Your account has been blocked!");
+  }
+
   // 2. Match password
+  if (!foundUser.user_password) {
+    throw new AuthFailureError("Please sign in with Google for this account!");
+  }
+
   const match = await bcrypt.compare(password, foundUser.user_password);
   if (!match) {
     throw new AuthFailureError("Error: Incorrect password!");
   }
 
-  // 3. Create RSA key pair for JWT
-  const publicKey = crypto.randomBytes(68).toString("hex");
-  const privateKey = crypto.randomBytes(68).toString("hex");
-
-  // 4. Create access + refresh token pair
-  const tokens = await createTokenPair(
-    { userId: foundUser._id, email, role: "customer", type: "user" },
-    publicKey,
-    privateKey,
-  );
-
-  // 5. Store key token
-  await KeyTokenService.createKeyToken({
-    userId: foundUser._id,
-    publicKey,
-    privateKey,
-    refreshToken: tokens.refreshToken,
-  });
+  const tokens = await issueUserTokens({ user: foundUser, email });
 
   // Controller đã bọc trong SuccessResponse.metadata — không bọc thêm lớp metadata
   return {
-    user: getInfoData({
-      fields: ["_id", "user_slug", "user_name", "user_email", "user_status"],
-      object: foundUser,
-    }),
+    user: getPublicUser(foundUser),
     tokens,
+  };
+};
+
+const requestAccountVerification = async ({ email }) => {
+  const normalizedEmail = validateEmail(email);
+  const user = await userModel.findOne({ user_email: normalizedEmail });
+
+  if (!user) {
+    throw new NotFoundError("Account not found!");
+  }
+
+  if (user.user_status === "blocked") {
+    throw new AuthFailureError("Your account has been blocked!");
+  }
+
+  if (user.user_status === "active" || user.user_emailVerified) {
+    return {
+      alreadyVerified: true,
+      user: getPublicUser(user),
+    };
+  }
+
+  const emailToken = await sendEmailToken({ email: normalizedEmail });
+
+  return {
+    alreadyVerified: false,
+    email: normalizedEmail,
+    expiresInSeconds: emailToken?.expiresInSeconds || 15 * 60,
+    ...(emailToken?.devToken ? { devToken: emailToken.devToken } : {}),
+  };
+};
+
+const confirmAccountVerification = async ({ token }) => {
+  const normalizedToken = String(token || "").trim();
+
+  if (!normalizedToken) {
+    throw new BadRequestError("Verification code is required!");
+  }
+
+  const { otp_email: email } = await checkEmailToken({ token: normalizedToken });
+  const user = await userModel.findOne({ user_email: email });
+
+  if (!user) {
+    throw new NotFoundError("Account not found!");
+  }
+
+  if (user.user_status === "blocked") {
+    throw new AuthFailureError("Your account has been blocked!");
+  }
+
+  user.user_status = "active";
+  user.user_emailVerified = true;
+  await user.save();
+
+  return {
+    user: getPublicUser(user),
+  };
+};
+
+const loginWithGoogle = async ({ credential }) => {
+  const profile = await verifyGoogleCredential(credential);
+  const email = String(profile.email).toLowerCase();
+  const googleId = String(profile.sub);
+  const displayName = String(profile.name || email.split("@")[0]);
+  const avatar = String(profile.picture || "");
+
+  let user = await userModel.findOne({
+    $or: [{ user_googleId: googleId }, { user_email: email }],
+  });
+  let isNewUser = false;
+
+  if (!user) {
+    user = await userModel.create({
+      user_slug: email.split("@")[0],
+      user_name: displayName,
+      user_email: email,
+      user_googleId: googleId,
+      user_avatar: avatar,
+      user_password: "",
+      user_authProviders: ["google"],
+      user_emailVerified: true,
+      user_status: "active",
+    });
+    isNewUser = true;
+  } else {
+    if (user.user_status === "blocked") {
+      throw new AuthFailureError("Your account has been blocked!");
+    }
+
+    user.user_googleId = user.user_googleId || googleId;
+    user.user_emailVerified = true;
+    if (user.user_status === "pending") {
+      user.user_status = "active";
+    }
+    user.user_name = user.user_name || displayName;
+    user.user_avatar = user.user_avatar || avatar;
+    user.user_authProviders = Array.from(
+      new Set([...(user.user_authProviders || []), "google"]),
+    );
+    await user.save();
+  }
+
+  const tokens = await issueUserTokens({
+    user,
+    email,
+    authProvider: "google",
+  });
+
+  return {
+    user: getPublicUser(user),
+    tokens,
+    isNewUser,
   };
 };
 
 // admin function
 const getAllUsers = async ({ limit = 10, page = 1, search = "", status = "" }) => {
-  // convert sang number
-  limit = parseInt(limit) || 10;
-  page = parseInt(page) || 1;
-
-  const skip = (page - 1) * limit;
-
+  const pagination = parsePagination({ page, limit, defaultLimit: 10, maxLimit: 100 });
   const filter = {};
   const normalizedSearch = String(search || "").trim();
   const normalizedStatus = String(status || "").trim();
@@ -238,19 +341,14 @@ const getAllUsers = async ({ limit = 10, page = 1, search = "", status = "" }) =
   const users = await userModel
     .find(filter)
     .select("-user_password")
-    .skip(skip)
-    .limit(limit)
+    .skip(pagination.skip)
+    .limit(pagination.limit)
     .sort({ createdAt: -1 })
     .lean();
 
   return {
     users,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination: buildPagination({ ...pagination, total }),
   };
 };
 
@@ -266,6 +364,10 @@ const getUserById = async (userId) => {
 };
 
 const updateUserStatusById = async (userId, status) => {
+  if (!["pending", "active", "blocked"].includes(status)) {
+    throw new BadRequestError("Invalid user status!");
+  }
+
   const updatedUser = await userModel
     .findOneAndUpdate(
       { _id: userId },
@@ -288,6 +390,9 @@ module.exports = {
   checkLoginEmailToken,
   createNewUserV2,
   loginUserV2,
+  loginWithGoogle,
+  requestAccountVerification,
+  confirmAccountVerification,
   getAllUsers,
   getUserById,
   updateUserStatusById,

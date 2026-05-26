@@ -52,14 +52,20 @@ var productSchema = new Schema(
     //more
     product_ratingAverage: {
       type: Number,
-      default: 4.5,
-      min: [1, "Rating must be above 1.0"],
+      default: 0,
+      min: [0, "Rating must be above 0"],
       max: [5, "Rating must be below 5.0"],
       set: (val) => Math.round(val * 10) / 10,
+    },
+    product_reviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     product_variations: { type: Array, default: [] },
     product_sold: { type: Number, default: 0 },
+    product_isFeatured: { type: Boolean, default: false, index: true },
     isDraft: { type: Boolean, default: true, index: true, select: true },
     isPublish: { type: Boolean, default: false, index: true, select: true },
     isDeleted: { type: Boolean, default: false, index: true },
@@ -75,6 +81,10 @@ productSchema.pre("save", function (next) {
 
 //create index for search
 productSchema.index({ product_name: "text", product_descriptions: "text" });
+productSchema.index({ isDeleted: 1, isPublish: 1, createdAt: -1 });
+productSchema.index({ isDeleted: 1, isPublish: 1, product_type: 1, createdAt: -1 });
+productSchema.index({ isDeleted: 1, product_shop: 1, createdAt: -1 });
+productSchema.index({ isDeleted: 1, product_shop: 1, product_quantity: 1 });
 
 // define the product type = clothing
 const clothingSchema = new Schema(
