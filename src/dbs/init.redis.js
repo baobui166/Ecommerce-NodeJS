@@ -1,7 +1,6 @@
 "use strict";
 
 const redis = require("redis");
-const { RedisErrorResponse } = require("../core/error.response");
 
 let client = {};
 
@@ -43,7 +42,11 @@ const handleEventConnect = ({ connectionRedis }) => {
   });
 };
 
-const initRedis = async () => {
+const buildRedisOptions = () => {
+  if (process.env.REDIS_URL) {
+    return { url: process.env.REDIS_URL };
+  }
+
   const options = {
     socket: {
       host: process.env.REDIS_HOST || "127.0.0.1",
@@ -53,13 +56,20 @@ const initRedis = async () => {
   };
 
   if (process.env.REDIS_PASSWORD) {
-    options.socket.password = process.env.REDIS_PASSWORD;
+    options.password = process.env.REDIS_PASSWORD;
   }
 
-  const instanceRedis = redis.createClient(options);
+  return options;
+};
 
+const createRedisClient = () => {
+  const instanceRedis = redis.createClient(buildRedisOptions());
   handleEventConnect({ connectionRedis: instanceRedis });
+  return instanceRedis;
+};
 
+const initRedis = async () => {
+  const instanceRedis = createRedisClient();
   await instanceRedis.connect();
 
   client.instanceConnect = instanceRedis;
@@ -83,4 +93,4 @@ const closeRedis = async () => {
   }
 };
 
-module.exports = { initRedis, getRedis, closeRedis };
+module.exports = { initRedis, getRedis, closeRedis, createRedisClient };

@@ -9,13 +9,14 @@ const { randomUUID } = require("crypto");
 const myLogger = require("./loggers/myLogger.log");
 
 const app = express();
+app.set("trust proxy", 1);
 
 //init middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,  // cho phép gửi/nhận cookies
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token']
+  allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token', 'x-auth-kind']
 }));
 app.use(cookieParser());
 app.use(morgan("dev"));

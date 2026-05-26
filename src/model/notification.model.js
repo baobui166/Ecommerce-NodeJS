@@ -1,27 +1,48 @@
-" use strict";
+"use strict";
 
 const { model, Schema } = require("mongoose");
-const { schema } = require("./order.model");
 
 const DOCUMENT_NAME = "Notification";
 const COLLECTION_NAME = "Notifications";
-// order001: order success
-// order002: order fail
-// promotion001: new promotion
-// SHOP-001: new product for User following
+
 const notificationSchema = new Schema(
   {
-    noti_type: {
+    recipientType: {
       type: String,
-      enum: ["ORDER-001", "ORDER-002", "PROMOTION-001", "SHOP-001"],
-      required: true,
+      enum: ["user", "admin"],
+      index: true,
     },
-    noti_senderId: { type: Schema.Types.ObjectId, required: true, ref: "Shop" },
+    recipientId: {
+      type: Schema.Types.ObjectId,
+      refPath: "recipientModel",
+      index: true,
+      default: null,
+    },
+    recipientModel: {
+      type: String,
+      enum: ["User", "Shop"],
+      default: null,
+    },
+    type: {
+      type: String,
+      enum: ["order", "promotion", "system", "inventory", "payment"],
+      default: "system",
+      index: true,
+    },
+    title: { type: String, trim: true, default: "Notification" },
+    message: { type: String, trim: true, default: "" },
+    link: { type: String, trim: true, default: "" },
+    data: { type: Object, default: {} },
+    isRead: { type: Boolean, default: false, index: true },
+    readAt: { type: Date, default: null },
+
+    // Legacy fields kept so existing documents can still be read/mapped.
+    noti_type: { type: String },
+    noti_senderId: { type: Schema.Types.ObjectId, ref: "Shop" },
     noti_recivedId: {
       type: Number,
-      required: true,
     },
-    noti_content: { type: String, required: true },
+    noti_content: { type: String },
     noti_options: { type: Object, default: {} },
   },
   {
@@ -29,5 +50,7 @@ const notificationSchema = new Schema(
     timestamps: true,
   },
 );
+
+notificationSchema.index({ recipientType: 1, recipientId: 1, createdAt: -1 });
 
 module.exports = model(DOCUMENT_NAME, notificationSchema);
