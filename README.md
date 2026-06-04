@@ -61,6 +61,25 @@ npm start
 # The server will run on http://localhost:5500
 ```
 
+## API Documentation
+
+Swagger UI is available after starting the backend:
+
+```txt
+http://localhost:5500/docs
+```
+
+The raw OpenAPI document is available at:
+
+```txt
+http://localhost:5500/docs/openapi.json
+```
+
+Authorization in Swagger:
+- Public APIs: set `x-api-key`.
+- Customer protected APIs: set `x-api-key`, `Authorization: Bearer <accessToken>`, `x-client-id`, and `x-auth-kind: user`.
+- Admin protected APIs: set `x-api-key`, `Authorization: Bearer <accessToken>`, `x-client-id`, and `x-auth-kind: admin`.
+
 ### API Endpoints
 
 | Endpoint | Description |
