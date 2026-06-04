@@ -10,6 +10,19 @@ const { parsePagination, buildPagination } = require("../../utils/pagination");
 const toObjectIdOrNull = (id) =>
   Types.ObjectId.isValid(id) ? convertToObjectIdMongodb(id) : null;
 
+const buildStatusHistoryEntry = ({
+  status,
+  changedBy = null,
+  changedByType = "system",
+  note = "",
+}) => ({
+  status,
+  changedBy: toObjectIdOrNull(changedBy),
+  changedByType,
+  note: String(note || "").trim(),
+  changedAt: new Date(),
+});
+
 // ───────── User-facing queries (used by OrderController) ─────────
 
 const findAllOrderByUserId = async (userId) => {
@@ -29,9 +42,15 @@ const findOneOrderByOrderId = async (orderId, userId = null) => {
   return await orderModel.findOne(filter).lean();
 };
 
-const cancelOrderStatusByUser = async (userId, orderId, status) => {
+const cancelOrderStatusByUser = async (userId, orderId, status, note = "") => {
   const _id = toObjectIdOrNull(orderId);
   if (!_id) return null;
+  const historyEntry = buildStatusHistoryEntry({
+    status,
+    changedBy: userId,
+    changedByType: "user",
+    note,
+  });
 
   return await orderModel
     .findOneAndUpdate(
@@ -40,13 +59,16 @@ const cancelOrderStatusByUser = async (userId, orderId, status) => {
         order_userId: userId,
         order_status: "pending", // chỉ huỷ được khi đang pending
       },
-      { $set: { order_status: status } },
+      {
+        $set: { order_status: status },
+        $push: { order_statusHistory: historyEntry },
+      },
       { new: true },
     )
     .lean();
 };
 
-const changeOrderStatusByAdmin = async (orderId, status, shopId) => {
+const changeOrderStatusByAdmin = async (orderId, status, shopId, note = "") => {
   const _id = toObjectIdOrNull(orderId);
   if (!_id) return null;
 
@@ -54,9 +76,22 @@ const changeOrderStatusByAdmin = async (orderId, status, shopId) => {
   if (shopId) {
     filter.order_shopId = shopId;
   }
+  const historyEntry = buildStatusHistoryEntry({
+    status,
+    changedBy: shopId,
+    changedByType: shopId ? "shop" : "admin",
+    note,
+  });
 
   return await orderModel
-    .findOneAndUpdate(filter, { $set: { order_status: status } }, { new: true })
+    .findOneAndUpdate(
+      filter,
+      {
+        $set: { order_status: status },
+        $push: { order_statusHistory: historyEntry },
+      },
+      { new: true },
+    )
     .lean();
 };
 
@@ -88,14 +123,29 @@ const findOrderById = async (orderId) => {
   return await orderModel.findOne({ _id }).lean();
 };
 
-const updateOrderStatusById = async (orderId, status) => {
+const updateOrderStatusById = async ({
+  orderId,
+  status,
+  changedBy = null,
+  changedByType = "admin",
+  note = "",
+}) => {
   const _id = toObjectIdOrNull(orderId);
   if (!_id) return null;
+  const historyEntry = buildStatusHistoryEntry({
+    status,
+    changedBy,
+    changedByType,
+    note,
+  });
 
   return await orderModel
     .findOneAndUpdate(
       { _id },
-      { $set: { order_status: status } },
+      {
+        $set: { order_status: status },
+        $push: { order_statusHistory: historyEntry },
+      },
       { new: true },
     )
     .lean();

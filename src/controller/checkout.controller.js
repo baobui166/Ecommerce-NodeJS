@@ -56,7 +56,10 @@ class CheckoutController {
   changeStatusOrderByAdmin = async (req, res, next) => {
     new SuccessResponse({
       message: "Change status order successfully!!!",
-      metadata: await CheckoutService.updateOrderStatusByShop(req.body),
+      metadata: await CheckoutService.updateOrderStatusByShop({
+        ...req.body,
+        shopId: req.body.shopId || req.user?.userId,
+      }),
     }).send(res);
   };
 }

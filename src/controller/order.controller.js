@@ -35,10 +35,16 @@ class OrderController {
 
   // PATCH /v1/api/order/:id/status
   updateOrderStatus = async (req, res, next) => {
-    const { order_status } = req.body;
+    const { order_status, note = "" } = req.body;
     if (!order_status) throw new BadRequestError("order_status is required!");
 
-    const updated = await updateOrderStatusById(req.params.id, order_status);
+    const updated = await updateOrderStatusById({
+      orderId: req.params.id,
+      status: order_status,
+      changedBy: req.user?.userId,
+      changedByType: req.user?.type === "shop" ? "shop" : "admin",
+      note,
+    });
     if (!updated) throw new BadRequestError("Order not found!");
 
     publishEvent({

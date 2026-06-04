@@ -35,6 +35,26 @@ var orderSchema = new Schema(
       enum: ["pending", "confirmed", "processing", "shipped", "cancelled", "delivered"],
       default: "pending",
     },
+    order_statusHistory: {
+      type: [
+        {
+          status: {
+            type: String,
+            enum: ["pending", "confirmed", "processing", "shipped", "cancelled", "delivered"],
+            required: true,
+          },
+          changedBy: { type: Schema.Types.ObjectId, default: null },
+          changedByType: {
+            type: String,
+            enum: ["system", "user", "admin", "shop"],
+            default: "system",
+          },
+          note: { type: String, trim: true, default: "" },
+          changedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: {

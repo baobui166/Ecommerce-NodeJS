@@ -215,6 +215,15 @@ class CheckoutService {
       },
       order_products: shop_order_ids_new,
       order_trackingNumber: `ORD-${Date.now()}`,
+      order_statusHistory: [
+        {
+          status: "pending",
+          changedBy: userId,
+          changedByType: "user",
+          note: "Order placed by customer",
+          changedAt: new Date(),
+        },
+      ],
     });
 
     // truong hop: neu thanh cong, thi remove product co trong gio hang
@@ -271,11 +280,16 @@ class CheckoutService {
     1. cancel order [User]
   */
 
-  static async cancelOrderByUser({ userId, orderId, status = "cancelled" }) {
+  static async cancelOrderByUser({ userId, orderId, status = "cancelled", note = "" }) {
     const foundOrder = await findOneOrderByOrderId(orderId, userId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    const updated = await cancelOrderStatusByUser(userId, orderId, status);
+    const updated = await cancelOrderStatusByUser(
+      userId,
+      orderId,
+      status,
+      note || "Order cancelled by customer",
+    );
     if (updated) {
       publishEvent({
         type: "order.status_changed",
@@ -292,11 +306,11 @@ class CheckoutService {
     1. updating Order status [Shop | Admin] 
   */
 
-  static async updateOrderStatusByShop({ orderId, status, shopId }) {
+  static async updateOrderStatusByShop({ orderId, status, shopId, note = "" }) {
     const foundOrder = await findOneOrderByOrderId(orderId);
     if (!foundOrder) throw new BadRequestError("Order does not exists");
 
-    const updated = await changeOrderStatusByAdmin(orderId, status, shopId);
+    const updated = await changeOrderStatusByAdmin(orderId, status, shopId, note);
     if (updated) {
       publishEvent({
         type: "order.status_changed",
