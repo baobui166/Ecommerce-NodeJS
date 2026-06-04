@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend static checks and integration tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve backend directory
+        id: backend-dir
+        run: |
+          if [ -f "server-backend-ecommerce/package.json" ]; then
+            echo "dir=server-backend-ecommerce" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ steps.backend-dir.outputs.dir }}/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ${{ steps.backend-dir.outputs.dir }}
+        run: npm ci
+
+      - name: Backend syntax check
+        working-directory: ${{ steps.backend-dir.outputs.dir }}
+        run: npm run check:syntax
+
+      - name: Backend integration tests
+        working-directory: ${{ steps.backend-dir.outputs.dir }}
+        env:
+          NODE_ENV: test
+          FRONTEND_URL: http://localhost:5173
+          RABBITMQ_URL: amqp://localhost
+          REDIS_URL: redis://localhost:6379
+          AI_API_KEY: ""
+        run: npm run test:integration
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check frontend directory
+        id: frontend
+        shell: bash
+        run: |
+          if [ -f "frontend/package-lock.json" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "frontend directory not found; skipping frontend build."
+          fi
+
+      - name: Setup Node.js
+        if: steps.frontend.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: steps.frontend.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        if: steps.frontend.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm run build
+
+  worker:
+    name: Worker static checks and tests
+    runs-on: ubuntu-latest
+    services:
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check worker directory
+        id: worker
+        shell: bash
+        run: |
+          if [ -f "sys-message-queue-shopDev/package-lock.json" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "worker directory not found; skipping worker checks."
+          fi
+
+      - name: Setup Node.js
+        if: steps.worker.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sys-message-queue-shopDev/package-lock.json
+
+      - name: Install worker dependencies
+        if: steps.worker.outputs.exists == 'true'
+        working-directory: sys-message-queue-shopDev
+        run: npm ci
+
+      - name: Worker syntax check
+        if: steps.worker.outputs.exists == 'true'
+        working-directory: sys-message-queue-shopDev
+        run: |
+          node --check server.js
+          find src -name "*.js" -not -path "*/node_modules/*" -print0 | xargs -0 -n1 node --check
+
+      - name: Worker tests
+        if: steps.worker.outputs.exists == 'true'
+        working-directory: sys-message-queue-shopDev
+        env:
+          RABBITMQ_URL: amqp://localhost:5672
+        run: npm test

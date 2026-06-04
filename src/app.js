@@ -19,7 +19,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token', 'x-auth-kind']
 }));
 app.use(cookieParser());
-app.use(morgan("dev"));
+if (process.env.NODE_ENV !== "test") {
+  app.use(morgan("dev"));
+}
 app.use(helmet());
 app.use(compression());
 app.use(express.json());
@@ -43,12 +45,14 @@ app.use((req, res, next) => {
 // productTest.purchaseProduct("productID:1001", 10)
 
 //init db
-require("./dbs/init.mongodb");
-overLoad();
-const initRedis = require("./dbs/init.redis");
-initRedis.initRedis().catch((error) => {
-  myLogger.error(`Redis unavailable, continuing without cache/locks: ${error.message}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  require("./dbs/init.mongodb");
+  overLoad();
+  const initRedis = require("./dbs/init.redis");
+  initRedis.initRedis().catch((error) => {
+    myLogger.error(`Redis unavailable, continuing without cache/locks: ${error.message}`);
+  });
+}
 //init route
 app.use("/", require("./routes/health"));
 app.use("/docs", require("./routes/docs"));
