@@ -50,6 +50,7 @@ initRedis.initRedis().catch((error) => {
   myLogger.error(`Redis unavailable, continuing without cache/locks: ${error.message}`);
 });
 //init route
+app.use("/", require("./routes/health"));
 app.use("/docs", require("./routes/docs"));
 app.use("/", require("./routes"));
 // handle error
