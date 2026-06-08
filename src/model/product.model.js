@@ -1,6 +1,5 @@
 "use strict";
 
-const { lowerCase } = require("lodash");
 const { model, Schema } = require("mongoose"); // Erase if already required
 const slugify = require("slugify");
 const DOCUMENT_NAME = "Product";
@@ -11,11 +10,11 @@ var productSchema = new Schema(
   {
     product_name: {
       type: String,
-      require: true,
+      required: true,
     },
     product_thumb: {
       type: String,
-      require: true,
+      required: true,
     },
     product_images: {
       type: [String],
@@ -29,15 +28,15 @@ var productSchema = new Schema(
     },
     product_price: {
       type: Number,
-      require: true,
+      required: true,
     },
     product_quantity: {
       type: Number,
-      require: true,
+      required: true,
     },
     product_type: {
       type: String,
-      require: true,
+      required: true,
       enum: ["Electronics", "Clothing", "Furniture"],
     },
     product_shop: {
@@ -46,7 +45,7 @@ var productSchema = new Schema(
     },
     product_attributes: {
       type: Schema.Types.Mixed,
-      require: true,
+      required: true,
     },
 
     //more
@@ -89,7 +88,7 @@ productSchema.index({ isDeleted: 1, product_shop: 1, product_quantity: 1 });
 // define the product type = clothing
 const clothingSchema = new Schema(
   {
-    brand: { type: String, require: true },
+    brand: { type: String, required: true },
     size: String,
     material: String,
     product_shop: { type: Schema.Types.ObjectId, ref: "Shop" },
@@ -103,7 +102,7 @@ const clothingSchema = new Schema(
 // define the product type = electronic
 const electronicSchema = new Schema(
   {
-    manufacture: { type: String, require: true },
+    manufacture: { type: String, required: true },
     model: String,
     color: String,
     product_shop: { type: Schema.Types.ObjectId, ref: "Shop" },
@@ -116,7 +115,7 @@ const electronicSchema = new Schema(
 
 const furnitureSchema = new Schema(
   {
-    manufacture: { type: String, require: true },
+    manufacture: { type: String, required: true },
     model: String,
     color: String,
     product_shop: { type: Schema.Types.ObjectId, ref: "Shop" },

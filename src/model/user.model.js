@@ -12,7 +12,7 @@ const userSchema = new Schema(
     user_password: { type: String, default: "" },
     user_salf: { type: String, default: "" },
     user_email: { type: String, required: true },
-    user_googleId: { type: String, index: true },
+    user_googleId: { type: String },
     user_authProviders: {
       type: [String],
       enum: ["local", "google"],

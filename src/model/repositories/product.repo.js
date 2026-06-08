@@ -381,6 +381,7 @@ const checkProductByServer = async (products) => {
     products.map(async (item) => {
       const foundProduct = await getProductById(item.productId);
       if (!foundProduct) return null;
+      if (foundProduct.isDeleted || !foundProduct.isPublish) return null;
       if (foundProduct.product_quantity < Number(item.quantity || 0)) return null;
       return {
         price: foundProduct.product_price,
