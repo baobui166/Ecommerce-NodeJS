@@ -1,8 +1,10 @@
 "use strict";
 
+const mongoose = require("mongoose");
 const { BadRequestError } = require("../core/error.response");
 const cartModel = require("../model/cart.model");
 const orderModel = require("../model/order.model");
+const { product: productModel } = require("../model/product.model");
 const { findCartById } = require("../model/repositories/cart.repo");
 const {
   findAllOrderByUserId,
@@ -12,7 +14,6 @@ const {
 } = require("../model/repositories/order.repo");
 const { checkProductByServer } = require("../model/repositories/product.repo");
 const DiscountService = require("./discount.service");
-const { acquireLock, releaseLock } = require("./redis.service");
 const { publishEvent } = require("./eventBus.service");
 const ShopService = require("./shop.service");
 
@@ -43,6 +44,75 @@ const resolveShippingMethod = async ({ subtotal, requestedMethodId }) => {
   }
 
   return { id: "standard", label: "Standard Delivery", fee: standardFee };
+};
+
+const isTransactionUnsupportedError = (error) =>
+  /Transaction numbers are only allowed|replica set member|mongos/i.test(
+    String(error?.message || ""),
+  );
+
+const runWithOptionalTransaction = async (work) => {
+  const session = await mongoose.startSession();
+
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
+    return result;
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) {
+      return await work(null);
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const aggregateProductQuantities = (orders) => {
+  const quantities = new Map();
+
+  for (const order of orders) {
+    for (const item of order.item_products || []) {
+      const productId = String(item.productId);
+      const quantity = Number(item.quantity || 0);
+      quantities.set(productId, (quantities.get(productId) || 0) + quantity);
+    }
+  }
+
+  return [...quantities.entries()].map(([productId, quantity]) => ({
+    productId,
+    quantity,
+  }));
+};
+
+const decrementProductInventory = async ({ orderItems, session }) => {
+  const inventoryItems = aggregateProductQuantities(orderItems);
+
+  for (const item of inventoryItems) {
+    const result = await productModel.updateOne(
+      {
+        _id: item.productId,
+        isDeleted: { $ne: true },
+        isPublish: true,
+        product_quantity: { $gte: item.quantity },
+      },
+      {
+        $inc: {
+          product_quantity: -item.quantity,
+          product_sold: item.quantity,
+        },
+      },
+      session ? { session } : undefined,
+    );
+
+    if (result.modifiedCount !== 1) {
+      throw new BadRequestError(
+        "Some products are out of stock. Please review your cart.",
+      );
+    }
+  }
 };
 
 class CheckoutService {
@@ -183,52 +253,39 @@ class CheckoutService {
       shippingFee: shippingMethod.fee,
     };
 
-    // check lai 1 lan nua xem co vuot kho hay khong
-    // get new array
-    const products = shop_order_ids_new.flatMap((order) => order.item_products);
-    const acquireProduct = [];
-    for (let i = 0; i < products.length; i++) {
-      const { productId, quantity } = products[i];
-      const keyLock = await acquireLock(productId, quantity, cartId);
-      acquireProduct.push(keyLock ? true : false);
-      if (keyLock) {
-        await releaseLock(keyLock);
-      }
-    }
+    const newOrder = await runWithOptionalTransaction(async (session) => {
+      await decrementProductInventory({
+        orderItems: shop_order_ids_new,
+        session,
+      });
 
-    // check neu co 1 san pham het han trong kho thi sao
-    if (acquireProduct.includes(false)) {
-      throw new BadRequestError(
-        "Mot so san pham da duoc cap nhat, vui long quay lai gio hang",
-      );
-    }
-
-    const newOrder = await orderModel.create({
-      order_userId: userId,
-      order_shopId: shop_order_ids_new[0]?.shopId,
-      order_checkout: checkout_order,
-      order_shipping: normalizedShippingAddress,
-      order_payment: {
-        method: user_payment.method || "COD",
-        status: user_payment.method === "ONLINE_MOCK" ? "paid_mock" : "pending",
-        ...user_payment,
-      },
-      order_products: shop_order_ids_new,
-      order_trackingNumber: `ORD-${Date.now()}`,
-      order_statusHistory: [
-        {
-          status: "pending",
-          changedBy: userId,
-          changedByType: "user",
-          note: "Order placed by customer",
-          changedAt: new Date(),
+      const orderPayload = {
+        order_userId: userId,
+        order_shopId: shop_order_ids_new[0]?.shopId,
+        order_checkout: checkout_order,
+        order_shipping: normalizedShippingAddress,
+        order_payment: {
+          method: user_payment.method || "COD",
+          status: user_payment.method === "ONLINE_MOCK" ? "paid_mock" : "pending",
+          ...user_payment,
         },
-      ],
-    });
+        order_products: shop_order_ids_new,
+        order_trackingNumber: `ORD-${Date.now()}`,
+        order_statusHistory: [
+          {
+            status: "pending",
+            changedBy: userId,
+            changedByType: "user",
+            note: "Order placed by customer",
+            changedAt: new Date(),
+          },
+        ],
+      };
 
-    // truong hop: neu thanh cong, thi remove product co trong gio hang
-    if (newOrder) {
-      // remove product co trong gio hang
+      const createdOrder = session
+        ? (await orderModel.create([orderPayload], { session }))[0]
+        : await orderModel.create(orderPayload);
+
       const productIdsToRemove = shop_order_ids_new.flatMap((order) =>
         order.item_products.map((item) => item.productId),
       );
@@ -240,8 +297,22 @@ class CheckoutService {
             cart_products: { productId: { $in: productIdsToRemove } },
           },
         },
+        session ? { session } : undefined,
       );
 
+      const updatedCartQuery = cartModel.cart.findById(cartId);
+      if (session) updatedCartQuery.session(session);
+      const updatedCart = await updatedCartQuery;
+      if (updatedCart) {
+        updatedCart.cart_count_product = updatedCart.cart_products.length;
+        await updatedCart.save(session ? { session } : undefined);
+      }
+
+      return createdOrder;
+    });
+
+    // truong hop: neu thanh cong, thi remove product co trong gio hang
+    if (newOrder) {
       publishEvent({
         type: "order.created",
         userId,

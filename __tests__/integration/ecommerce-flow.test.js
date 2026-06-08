@@ -27,12 +27,13 @@ jest.mock("../../src/loggers/myLogger.log", () => ({
 const request = require("supertest");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const { MongoMemoryServer } = require("mongodb-memory-server");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const app = require("../../src/app");
 const ApiKeyModel = require("../../src/model/apiKey.model");
 const ShopModel = require("../../src/model/shop.model");
 const UserModel = require("../../src/model/user.model");
+const { product: ProductModel } = require("../../src/model/product.model");
 
 const API_KEY = "test-api-key";
 const ADMIN_EMAIL = "admin@example.com";
@@ -144,7 +145,7 @@ const createAndPublishProduct = async ({ adminToken, shopId }) => {
 };
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri());
 });
 
@@ -312,6 +313,9 @@ describe("Cart, checkout, and admin order status", () => {
 
     const orderId = orderResponse.body.metadata._id;
     expect(orderResponse.body.metadata.order_status).toBe("pending");
+    const updatedProduct = await ProductModel.findById(product._id).lean();
+    expect(updatedProduct.product_quantity).toBe(9);
+    expect(updatedProduct.product_sold).toBe(1);
     expect(orderResponse.body.metadata.order_statusHistory).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
