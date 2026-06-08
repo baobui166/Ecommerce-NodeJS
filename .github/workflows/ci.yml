@@ -129,13 +129,9 @@ jobs:
       - name: Worker syntax check
         if: steps.worker.outputs.exists == 'true'
         working-directory: sys-message-queue-shopDev
-        run: |
-          node --check server.js
-          find src -name "*.js" -not -path "*/node_modules/*" -print0 | xargs -0 -n1 node --check
+        run: npm run check:syntax
 
-      - name: Worker tests
+      - name: Worker unit tests
         if: steps.worker.outputs.exists == 'true'
         working-directory: sys-message-queue-shopDev
-        env:
-          RABBITMQ_URL: amqp://localhost:5672
-        run: npm test
+        run: npm run test:unit

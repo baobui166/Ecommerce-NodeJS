@@ -49,7 +49,7 @@ cd server-backend-ecommerce
 npm install
 
 # Configure environment variables
-# Edit .env file with your configuration
+# Copy .env.example to .env and fill local values
 ```
 
 ## Usage
@@ -127,7 +127,7 @@ server-backend-ecommerce/
 │   │   └── success.response.js
 │   ├── dbs/                     # Database initialization
 │   │   ├── init.mongodb.js
-│   │   ├── init.mongodb.lev0.js
+│   │   ├── init.redis.js
 │   │   └── init.nodemailer.js
 │   ├── helpers/                 # Helper functions
 │   │   ├── asyncHandler.js
@@ -157,7 +157,7 @@ server-backend-ecommerce/
 │   ├── routes/                  # API routes
 │   └── services/                # Business logic
 ├── docs/                        # Documentation
-├── .env                         # Environment variables
+├── .env.example                 # Environment variable template
 ├── .gitignore
 ├── package.json
 ├── package-lock.json
