@@ -2,12 +2,12 @@
 const mongoose = require("mongoose");
 const os = require("os");
 const process = require("process");
+const myLogger = require("../loggers/myLogger.log");
 const _SECONDS = 5000;
 
 // count connect
 const countConnect = () => {
-  const numConnection = mongoose.connections.length;
-  console.log("Number of connections: ", numConnection);
+  return mongoose.connections.length;
 };
 
 // check overload
@@ -23,7 +23,11 @@ const overLoad = () => {
     // Example maximum number of connection based on number ofs cores
     const maxConnections = numCore * 5;
     if (numConnection > maxConnections) {
-      console.log("Connection overload detected!");
+      myLogger.error("MongoDB connection overload detected", [
+        "database",
+        { requestId: "system" },
+        { connections: numConnection, maxConnections, memoryUsage },
+      ]);
     }
   }, _SECONDS); // moniter every 5 seconds
 };

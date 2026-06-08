@@ -108,7 +108,6 @@ class AccessService {
         privateKey,
       );
 
-      console.log("Created Token Success::", tokens);
       return {
         code: 201,
         metadata: {
@@ -129,10 +128,7 @@ class AccessService {
 
   //LOGOUT
   static logout = async (keyStore) => {
-    console.log("keyStore in service: ", keyStore);
-    const delKey = await KeyTokenService.removeKeyById(keyStore._id);
-    console.log(delKey);
-    return delKey;
+    return await KeyTokenService.removeKeyById(keyStore._id);
   };
 
   /*

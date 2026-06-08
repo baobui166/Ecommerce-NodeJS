@@ -44,8 +44,6 @@ class KeyTokenService {
       .findOne({ user: new Types.ObjectId(userId) })
       .lean();
 
-    console.log(result);
-
     return result;
   };
 

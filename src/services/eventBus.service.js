@@ -1,6 +1,7 @@
 "use strict";
 
 const { randomUUID } = require("crypto");
+const myLogger = require("../loggers/myLogger.log");
 
 let amqp;
 try {
@@ -32,7 +33,11 @@ const getChannel = async () => {
     connection = await amqp.connect(RABBITMQ_URL);
     connection.on("close", resetConnection);
     connection.on("error", (error) => {
-      console.error("RabbitMQ connection error:", error.message);
+      myLogger.error("RabbitMQ connection error", [
+        "event-bus",
+        { requestId: "system" },
+        { message: error.message },
+      ]);
     });
 
     channel = await connection.createConfirmChannel();
@@ -40,7 +45,11 @@ const getChannel = async () => {
       channel = null;
     });
     channel.on("error", (error) => {
-      console.error("RabbitMQ channel error:", error.message);
+      myLogger.error("RabbitMQ channel error", [
+        "event-bus",
+        { requestId: "system" },
+        { message: error.message },
+      ]);
     });
 
     await channel.assertExchange(DLX_EXCHANGE, "direct", { durable: true });
@@ -85,7 +94,11 @@ const publishEvent = async ({ eventId, type, userId, orderId, metadata = {} }) =
     );
     await eventChannel.waitForConfirms();
   } catch (error) {
-    console.error(`Event publish skipped (${type}):`, error.message);
+    myLogger.error("Event publish skipped", [
+      "event-bus",
+      { requestId: "system" },
+      { type, message: error.message },
+    ]);
     resetConnection();
   }
 

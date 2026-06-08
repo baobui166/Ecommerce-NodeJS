@@ -11,6 +11,28 @@ const myLogger = require("./loggers/myLogger.log");
 const app = express();
 app.set("trust proxy", 1);
 
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "user_password",
+  "refreshtoken",
+  "accesstoken",
+  "token",
+  "authorization",
+  "cookie",
+]);
+
+const redactSensitiveData = (value) => {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(redactSensitiveData);
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      SENSITIVE_KEYS.has(key.toLowerCase()) ? "[REDACTED]" : redactSensitiveData(item),
+    ]),
+  );
+};
+
 //init middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -25,14 +47,14 @@ if (process.env.NODE_ENV !== "test") {
 app.use(helmet());
 app.use(compression());
 app.use(express.json());
-app.use(express.urlencoded({ extends: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   const requestId = req.headers["x-request-id"];
   req.requestId = requestId ? requestId : randomUUID();
   myLogger.log(`input params:: ${req.method}::`, [
     req.path,
     { requestId: req.requestId },
-    req.method === "POST" ? req.body : req.query,
+    redactSensitiveData(req.method === "GET" ? req.query : req.body),
   ]);
 
   next();
@@ -66,9 +88,9 @@ app.use((req, res, next) => {
 
 app.use((error, req, res, next) => {
   const statusCode = error.status || 500;
-  const resMessage = `${
-    error.status
-  } - ${Date.now()}ms - Response: ${JSON.stringify(error)}`;
+  const resMessage = `${statusCode} - ${Date.now()}ms - Response: ${
+    error.name || "Error"
+  }`;
 
   myLogger.error(resMessage, [
     req.path,

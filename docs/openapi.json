@@ -1373,6 +1373,12 @@
         ],
         "summary": "Upload product image to configured provider",
         "operationId": "uploadProductImage",
+        "security": [
+          {
+            "apiKeyAuth": [],
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {

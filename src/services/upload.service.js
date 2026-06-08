@@ -2,6 +2,7 @@
 
 const cloudinary = require("../config/cloudinary.config");
 const { BadRequestError } = require("../core/error.response");
+const myLogger = require("../loggers/myLogger.log");
 //const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { getSignedUrl } = require("@aws-sdk/cloudfront-signer");
 const { randomImgaeName } = require("../utils");
@@ -56,7 +57,11 @@ const uploadImageFromUrl = async ({ url, folderName = DEFAULT_CLOUDINARY_FOLDER 
 
     return normalizeCloudinaryResult(result);
   } catch (error) {
-    console.log(`Failed upload image URL into cloudinary`, error);
+    myLogger.error("Cloudinary URL upload failed", [
+      "upload",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
     throw error;
   }
 };
@@ -73,7 +78,11 @@ const uploadImageFromLocal = async ({ path, folderName = DEFAULT_CLOUDINARY_FOLD
 
     return normalizeCloudinaryResult(result);
   } catch (error) {
-    console.log(`Failed upload image into cloudinary`, error);
+    myLogger.error("Cloudinary local upload failed", [
+      "upload",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
     throw error;
   }
 };
@@ -139,9 +148,6 @@ const uploadFromLocalS3 = async ({ file }) => {
 
     const result = await s3.send(command);
 
-    console.log("Result:::", result);
-    console.log("URL:::", url);
-
     //return result;
     return {
       url,
@@ -151,7 +157,12 @@ const uploadFromLocalS3 = async ({ file }) => {
       result,
     };
   } catch (error) {
-    console.log(`Failed upload image into s3`, error);
+    myLogger.error("S3 upload failed", [
+      "upload",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
+    throw error;
   }
 };
 /// end s3 service

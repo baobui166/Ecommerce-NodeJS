@@ -6,6 +6,7 @@ const { createAdapter } = require("@socket.io/redis-adapter");
 const { findById: findApiKey } = require("../services/apiKey.service");
 const { findByUserID } = require("../services/ketToken.service");
 const { createRedisClient } = require("../dbs/init.redis");
+const myLogger = require("../loggers/myLogger.log");
 
 const NOTIFICATION_CHANNEL = process.env.NOTIFICATION_REDIS_CHANNEL || "notifications:new";
 
@@ -76,7 +77,11 @@ const subscribeToNotifications = async () => {
     try {
       emitNotification(JSON.parse(message));
     } catch (error) {
-      console.error("Invalid notification pub/sub payload:", error.message);
+      myLogger.error("Invalid notification pub/sub payload", [
+        "socket",
+        { requestId: "system" },
+        { message: error.message },
+      ]);
     }
   });
 };
@@ -101,7 +106,11 @@ const initNotificationSocket = async (server) => {
   try {
     await installRedisAdapter();
   } catch (error) {
-    console.error(`Socket.IO Redis adapter unavailable: ${error.message}`);
+    myLogger.error("Socket.IO Redis adapter unavailable", [
+      "socket",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
   }
 
   io.use(authenticateSocket);
@@ -118,7 +127,11 @@ const initNotificationSocket = async (server) => {
   try {
     await subscribeToNotifications();
   } catch (error) {
-    console.error(`Notification Redis subscriber unavailable: ${error.message}`);
+    myLogger.error("Notification Redis subscriber unavailable", [
+      "socket",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
   }
 
   return io;

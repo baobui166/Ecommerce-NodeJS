@@ -2,9 +2,8 @@
 
 const mongoose = require("mongoose");
 const { countConnect } = require("../helpers/check.connect");
-const connectSrting = process.env.MONGODB_URI || "mongodb://localhost:27017/shopDev";
-
-console.log(connectSrting);
+const myLogger = require("../loggers/myLogger.log");
+const connectString = process.env.MONGODB_URI || "mongodb://localhost:27017/shopDev";
 
 class Database {
   constructor() {
@@ -12,15 +11,27 @@ class Database {
   }
   // connect
   connect(type = "mongodb") {
-    if (1 === 1) {
+    if (process.env.NODE_ENV === "development") {
       mongoose.set("debug", true);
       mongoose.set("debug", { color: true });
     }
 
     mongoose
-      .connect(connectSrting, { maxPoolSize: 50 })
-      .then((_) => console.log("Connected MongoDb Success PRO", countConnect()))
-      .catch((err) => console.log("Error Connect MongoDB!!!", err.message));
+      .connect(connectString, { maxPoolSize: 50 })
+      .then(() =>
+        myLogger.log("MongoDB connected", [
+          "database",
+          { requestId: "system" },
+          { connections: countConnect() },
+        ]),
+      )
+      .catch((err) =>
+        myLogger.error("MongoDB connection failed", [
+          "database",
+          { requestId: "system" },
+          { message: err.message },
+        ]),
+      );
   }
 
   static getInstance() {

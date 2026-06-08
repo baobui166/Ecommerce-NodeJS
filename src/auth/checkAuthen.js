@@ -26,7 +26,6 @@ const apiKey = async (req, res, next) => {
 
     return next();
   } catch (error) {
-    console.log(error);
     return next(error);
   }
 };

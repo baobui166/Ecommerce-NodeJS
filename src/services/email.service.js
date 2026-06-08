@@ -4,6 +4,7 @@ const { newOTP } = require("./otp.service");
 const { getTemplate } = require("./templateEmail.service");
 const transport = require("../dbs/init.nodemailer");
 const { replacePlacehoder } = require("../utils");
+const myLogger = require("../loggers/myLogger.log");
 
 const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
 
@@ -74,7 +75,11 @@ const sendEmailToken = async ({ email = null }) => {
       ...(process.env.NODE_ENV !== "production" ? { devToken: token.otp_token } : {}),
     };
   } catch (error) {
-    console.error("Failed to send verification email:", error);
+    myLogger.error("Failed to send verification email", [
+      "email",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
     throw error;
   }
 };
@@ -88,7 +93,11 @@ const sendEmailLinkVerify = async ({
   try {
     if (process.env.RESEND_API_KEY) {
       const result = await sendEmailWithResend({ html, toEmail, subject, text });
-      console.log("Resend message info: ", result);
+      myLogger.log("Resend email sent", [
+        "email",
+        { requestId: "system" },
+        { id: result?.id, toEmail },
+      ]);
       return result;
     }
 
@@ -101,10 +110,18 @@ const sendEmailLinkVerify = async ({
     };
 
     const info = await transport.sendMail(mailOptions);
-    console.log("SMTP message info:  ", info);
+    myLogger.log("SMTP email sent", [
+      "email",
+      { requestId: "system" },
+      { messageId: info?.messageId, toEmail },
+    ]);
     return info;
   } catch (error) {
-    console.error("error to send email::", error);
+    myLogger.error("Email send failed", [
+      "email",
+      { requestId: "system" },
+      { message: error.message },
+    ]);
     throw error;
   }
 };

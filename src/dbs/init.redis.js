@@ -1,6 +1,7 @@
 "use strict";
 
 const redis = require("redis");
+const myLogger = require("../loggers/myLogger.log");
 
 let client = {};
 
@@ -18,26 +19,33 @@ let connectionTimeout;
 
 const handleTimeOutError = () => {
   connectionTimeout = setTimeout(() => {
-    console.error(REDIS_CONNECT_MESSAGE.message.en);
+    myLogger.error(REDIS_CONNECT_MESSAGE.message.en, [
+      "redis",
+      { requestId: "system" },
+    ]);
   }, REDIS_CONNECT_TIMEOUT);
 };
 
 const handleEventConnect = ({ connectionRedis }) => {
   connectionRedis.on("connect", () => {
-    console.log("Redis connected");
+    myLogger.log("Redis connected", ["redis", { requestId: "system" }]);
     clearTimeout(connectionTimeout);
   });
 
   connectionRedis.on("end", () => {
-    console.log("Redis ended");
+    myLogger.log("Redis ended", ["redis", { requestId: "system" }]);
   });
 
   connectionRedis.on("reconnecting", () => {
-    console.log("Redis reconnecting");
+    myLogger.log("Redis reconnecting", ["redis", { requestId: "system" }]);
   });
 
   connectionRedis.on("error", (err) => {
-    console.error("Redis error:", err);
+    myLogger.error("Redis error", [
+      "redis",
+      { requestId: "system" },
+      { message: err.message },
+    ]);
     handleTimeOutError();
   });
 };
@@ -79,16 +87,23 @@ const getRedis = () => client;
 
 const closeRedis = async () => {
   if (!client.instanceConnect) {
-    console.log("closeRedis - No active connection");
+    myLogger.log("Redis close skipped: no active connection", [
+      "redis",
+      { requestId: "system" },
+    ]);
     return;
   }
 
   try {
     await client.instanceConnect.quit();
     client.instanceConnect = null;
-    console.log("Redis connection closed");
+    myLogger.log("Redis connection closed", ["redis", { requestId: "system" }]);
   } catch (err) {
-    console.error("Error closing Redis:", err);
+    myLogger.error("Error closing Redis", [
+      "redis",
+      { requestId: "system" },
+      { message: err.message },
+    ]);
     await client.instanceConnect?.disconnect();
   }
 };

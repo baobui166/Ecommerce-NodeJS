@@ -4,16 +4,25 @@ const app = require("./src/app");
 const { initNotificationSocket, closeNotificationSocket } = require("./src/sockets/notification.socket");
 const { closeEventBus } = require("./src/services/eventBus.service");
 const { closeRedis } = require("./src/dbs/init.redis");
+const myLogger = require("./src/loggers/myLogger.log");
 const PORT = process.env.PORT || 5500;
 
 const server = http.createServer(app);
 
 initNotificationSocket(server).catch((error) => {
-  console.error("Realtime notification init failed:", error.message);
+  myLogger.error("Realtime notification init failed", [
+    "server",
+    { requestId: "system" },
+    { message: error.message },
+  ]);
 });
 
 server.listen(PORT, () => {
-  console.log("xin chao");
+  myLogger.log("HTTP server started", [
+    "server",
+    { requestId: "system" },
+    { port: PORT },
+  ]);
 });
 
 process.on("SIGINT", () => {
@@ -21,6 +30,6 @@ process.on("SIGINT", () => {
     await closeNotificationSocket();
     await closeEventBus();
     await closeRedis();
-    console.log("Exit Server Express");
+    myLogger.log("HTTP server stopped", ["server", { requestId: "system" }]);
   });
 });
