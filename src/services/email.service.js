@@ -12,7 +12,7 @@ const sendEmailWithResend = async ({ html, toEmail, subject, text }) => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
 
-  const from = process.env.RESEND_FROM_EMAIL || "ShopPro <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM_EMAIL || "Nook <onboarding@resend.dev>";
   const response = await fetch(RESEND_EMAILS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -54,7 +54,7 @@ const sendEmailToken = async ({ email = null }) => {
       ? replacePlacehoder(template.tem_html, { link_verify: linkVerify })
       : `
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
-          <h2>Verify your ShopPro account</h2>
+          <h2>Verify your Nook account</h2>
           <p>Use this code to verify your account:</p>
           <p style="font-size:24px;font-weight:700;letter-spacing:4px">${token.otp_token}</p>
           <p>Or open this link:</p>
@@ -66,7 +66,7 @@ const sendEmailToken = async ({ email = null }) => {
     await sendEmailLinkVerify({
       html: content,
       toEmail: normalizedEmail,
-      subject: "Verify your ShopPro account",
+      subject: "Verify your Nook account",
     });
 
     return {
@@ -102,7 +102,7 @@ const sendEmailLinkVerify = async ({
     }
 
     const mailOptions = {
-      from: '"ShopPro" <anonystick@gmail.com> ',
+      from: '"Nook" <anonystick@gmail.com> ',
       to: toEmail,
       subject,
       text,

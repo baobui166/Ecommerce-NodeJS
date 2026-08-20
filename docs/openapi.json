@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "ShopPro E-Commerce API",
+    "title": "Nook E-Commerce API",
     "version": "1.0.0",
-    "description": "OpenAPI documentation for the ShopPro backend. All /v1/api endpoints require x-api-key. Protected user/admin endpoints also require Authorization and x-client-id."
+    "description": "OpenAPI documentation for the Nook backend. All /v1/api endpoints require x-api-key. Protected user/admin endpoints also require Authorization and x-client-id."
   },
   "servers": [
     {
