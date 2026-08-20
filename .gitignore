@@ -9,5 +9,4 @@ src/uploads/
 src/test/
 coverage/
 *.log
-src/services/product.service.xxx.js
 src/dbs/init.mongodb.lev0.js
