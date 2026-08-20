@@ -16,6 +16,7 @@ const { checkProductByServer } = require("../model/repositories/product.repo");
 const DiscountService = require("./discount.service");
 const { publishEvent } = require("./eventBus.service");
 const ShopService = require("./shop.service");
+const { notifyLowStockIfNeeded } = require("./stockAlert.service");
 
 const toSafeNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -91,7 +92,7 @@ const decrementProductInventory = async ({ orderItems, session }) => {
   const inventoryItems = aggregateProductQuantities(orderItems);
 
   for (const item of inventoryItems) {
-    const result = await productModel.updateOne(
+    const updated = await productModel.findOneAndUpdate(
       {
         _id: item.productId,
         isDeleted: { $ne: true },
@@ -104,14 +105,35 @@ const decrementProductInventory = async ({ orderItems, session }) => {
           product_sold: item.quantity,
         },
       },
-      session ? { session } : undefined,
+      { new: true, ...(session ? { session } : {}) },
     );
 
-    if (result.modifiedCount !== 1) {
+    if (!updated) {
       throw new BadRequestError(
         "Some products are out of stock. Please review your cart.",
       );
     }
+
+    notifyLowStockIfNeeded(updated);
+  }
+};
+
+// Gives back stock taken by decrementProductInventory when an order is
+// cancelled after being placed. No $gte guard needed since we're adding back.
+const restoreProductInventory = async ({ orderItems, session }) => {
+  const inventoryItems = aggregateProductQuantities(orderItems);
+
+  for (const item of inventoryItems) {
+    await productModel.updateOne(
+      { _id: item.productId },
+      {
+        $inc: {
+          product_quantity: item.quantity,
+          product_sold: -item.quantity,
+        },
+      },
+      session ? { session } : undefined,
+    );
   }
 };
 
@@ -362,6 +384,12 @@ class CheckoutService {
       note || "Order cancelled by customer",
     );
     if (updated) {
+      // cancelOrderStatusByUser only succeeds from "pending", so this is
+      // always a fresh cancellation — safe to restore unconditionally.
+      if (updated.order_status === "cancelled") {
+        await restoreProductInventory({ orderItems: foundOrder.order_products || [] });
+      }
+
       publishEvent({
         type: "order.status_changed",
         userId: updated.order_userId,
@@ -373,8 +401,8 @@ class CheckoutService {
     return updated;
   }
 
-  /*  
-    1. updating Order status [Shop | Admin] 
+  /*
+    1. updating Order status [Shop | Admin]
   */
 
   static async updateOrderStatusByShop({ orderId, status, shopId, note = "" }) {
@@ -383,6 +411,10 @@ class CheckoutService {
 
     const updated = await changeOrderStatusByAdmin(orderId, status, shopId, note);
     if (updated) {
+      if (status === "cancelled" && foundOrder.order_status !== "cancelled") {
+        await restoreProductInventory({ orderItems: foundOrder.order_products || [] });
+      }
+
       publishEvent({
         type: "order.status_changed",
         userId: updated.order_userId,
@@ -392,6 +424,13 @@ class CheckoutService {
     }
 
     return updated;
+  }
+
+  // Shared by OrderController's admin status-update path so cancellations
+  // triggered from either admin surface restore stock the same way.
+  static async restoreInventoryForOrder(order) {
+    if (!order) return;
+    await restoreProductInventory({ orderItems: order.order_products || [] });
   }
 }
 

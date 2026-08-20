@@ -14,7 +14,6 @@ router.use(permission("0000"));
 router.use("/v1/api/discount", require("./discount"));
 router.use("/v1/api/comment", require("./comment"));
 router.use("/v1/api/ai", require("./ai"));
-router.use("/v1/api/inventory", require("./inventory"));
 router.use("/v1/api/checkout", require("./checkout"));
 router.use("/v1/api/product", require("./product"));
 router.use("/v1/api", require("./access"));

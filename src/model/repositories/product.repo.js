@@ -397,6 +397,27 @@ const checkProductByServer = async (products) => {
   ).then((results) => results.filter((p) => p !== null));
 };
 
+const restockProduct = async ({ product_id, product_shop, delta }) => {
+  const query = {
+    _id: new Types.ObjectId(product_id),
+    isDeleted: { $ne: true },
+    product_shop: new Types.ObjectId(product_shop),
+  };
+  // Only guard against going negative when the adjustment is a decrease
+  // (e.g. a damaged-stock write-off); increases have no lower bound to check.
+  if (delta < 0) {
+    query.product_quantity = { $gte: -delta };
+  }
+
+  return await product
+    .findOneAndUpdate(
+      query,
+      { $inc: { product_quantity: delta } },
+      { new: true, runValidators: true },
+    )
+    .lean();
+};
+
 module.exports = {
   findAllDraftsForShop,
   publishProductByShop,
@@ -412,5 +433,6 @@ module.exports = {
   findProduct,
   updateProductById,
   getProductById,
+  restockProduct,
   checkProductByServer,
 };

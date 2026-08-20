@@ -111,6 +111,30 @@ class ProductController {
     }).send(res);
   };
 
+  restockProduct = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Restock product success!!!",
+      metadata: await ProductServiceV2.restockProduct({
+        product_id: req.params.productId,
+        product_shop: req.user.userId,
+        delta: req.body.delta,
+        reason: req.body.reason,
+        changedBy: req.user.userId,
+      }),
+    }).send(res);
+  };
+
+  getStockHistory = async (req, res, next) => {
+    new SuccessResponse({
+      message: "Get stock history success!!!",
+      metadata: await ProductServiceV2.getStockHistory({
+        product_id: req.params.productId,
+        product_shop: req.user.userId,
+        limit: req.query.limit,
+      }),
+    }).send(res);
+  };
+
   findAllProducts = async (req, res, next) => {
     const shopId = req.headers["x-client-id"];
     const isPublic = !shopId;

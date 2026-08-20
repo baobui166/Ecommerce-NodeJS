@@ -59,6 +59,22 @@ const buildNotificationForEvent = (event) => {
       };
     }
 
+    case "product.low_stock": {
+      const { productId, productName, quantity } = event.metadata || {};
+      const name = productName || "A product";
+      const outOfStock = Number(quantity) <= 0;
+      return {
+        recipientType: "admin",
+        type: "inventory",
+        title: outOfStock ? "Product out of stock" : "Low stock alert",
+        message: outOfStock
+          ? `${name} is now out of stock.`
+          : `${name} is running low (${quantity} left).`,
+        link: "/admin/products",
+        data: { productId, quantity },
+      };
+    }
+
     case "user.registered": {
       const email = event.metadata?.email;
       return {

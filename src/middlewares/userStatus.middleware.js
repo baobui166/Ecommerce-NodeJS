@@ -1,11 +1,25 @@
 "use strict";
 
 const userModel = require("../model/user.model");
+const shopModel = require("../model/shop.model");
 const { AuthFailureError, ForbiddenError } = require("../core/error.response");
 
+// Shop/admin tokens carry a userId that lives in the Shop collection, not
+// User — looking them up via userModel always 404'd, which meant every
+// shop/admin request through this middleware (e.g. the notification bell)
+// was silently rejected with a 401.
 const getAuthenticatedUserRecord = async (req) => {
   const userId = req.user?.userId;
   if (!userId) throw new AuthFailureError("Invalid user session");
+
+  if (req.user?.type === "shop") {
+    const shop = await shopModel
+      .findById(userId)
+      .select("_id status email")
+      .lean();
+    if (!shop) throw new AuthFailureError("Shop account not found");
+    return { _id: shop._id, user_status: shop.status === "active" ? "active" : "blocked", user_email: shop.email };
+  }
 
   const user = await userModel
     .findById(userId)

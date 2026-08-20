@@ -8,7 +8,6 @@ const {
   electronic,
   furniture,
 } = require("../model/product.model");
-const { insertInventory } = require("../model/repositories/inventory.repo");
 const {
   findAllDraftsForShop,
   publishProductByShop,
@@ -23,9 +22,12 @@ const {
   findAllProductsAdmin,
   findProduct,
   updateProductById,
+  restockProduct,
 } = require("../model/repositories/product.repo");
+const stockHistoryModel = require("../model/stockHistory.model");
 const { removeUndefinedObject, updateNestedObject } = require("../utils");
 const NotificationService = require("./notification.service");
+const { notifyLowStockIfNeeded } = require("./stockAlert.service");
 
 // define Factory class to create product
 class ProductFactoryV2 {
@@ -100,6 +102,41 @@ class ProductFactoryV2 {
 
   static async getInventoryAlerts({ shopId, threshold }) {
     return await findInventoryAlerts({ shopId, threshold });
+  }
+
+  static async restockProduct({ product_id, product_shop, delta, reason = "", changedBy }) {
+    const numericDelta = Number(delta);
+    if (!Number.isInteger(numericDelta) || numericDelta === 0) {
+      throw new BadRequestError("delta must be a non-zero integer");
+    }
+
+    const updated = await restockProduct({ product_id, product_shop, delta: numericDelta });
+    if (!updated) {
+      throw new NotFoundError(
+        "Product not found, unauthorized, or adjustment would drop stock below zero",
+      );
+    }
+
+    await stockHistoryModel.create({
+      product: product_id,
+      shop: product_shop,
+      delta: numericDelta,
+      quantityAfter: updated.product_quantity,
+      reason,
+      changedBy: changedBy || product_shop,
+    });
+
+    notifyLowStockIfNeeded(updated);
+
+    return updated;
+  }
+
+  static async getStockHistory({ product_id, product_shop, limit = 20 }) {
+    return await stockHistoryModel
+      .find({ product: product_id, shop: product_shop })
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 20, 50))
+      .lean();
   }
 
   static async findAllProducts({
@@ -277,13 +314,6 @@ class Product {
     const newProduct = await product.create({ ...this, _id: product_id });
 
     if (newProduct) {
-      // add product_ids in inventory collection
-      await insertInventory({
-        productId: newProduct._id,
-        shopId: this.product_shop,
-        stock: this.product_quantity,
-      });
-
       // push notification to system collection
       NotificationService.createNotiSystem({
         type: "SHOP-001",

@@ -60,6 +60,18 @@ router.delete(
   asyncHandler(productController.deleteProduct),
 );
 router.post(
+  "/:productId/restock",
+  authentication,
+  requireAdmin,
+  asyncHandler(productController.restockProduct),
+);
+router.get(
+  "/:productId/stock-history",
+  authentication,
+  requireAdmin,
+  asyncHandler(productController.getStockHistory),
+);
+router.post(
   "/publish/:id",
   authentication,
   requireAdmin,

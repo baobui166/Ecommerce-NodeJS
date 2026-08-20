@@ -9,6 +9,7 @@ const {
 } = require("../model/repositories/order.repo");
 const { BadRequestError } = require("../core/error.response");
 const { publishEvent } = require("../services/eventBus.service");
+const CheckoutService = require("../services/checkout.service");
 
 class OrderController {
   // GET /v1/api/order?limit=20&page=1
@@ -38,6 +39,9 @@ class OrderController {
     const { order_status, note = "" } = req.body;
     if (!order_status) throw new BadRequestError("order_status is required!");
 
+    const previousOrder = await findOrderById(req.params.id);
+    if (!previousOrder) throw new BadRequestError("Order not found!");
+
     const updated = await updateOrderStatusById({
       orderId: req.params.id,
       status: order_status,
@@ -46,6 +50,10 @@ class OrderController {
       note,
     });
     if (!updated) throw new BadRequestError("Order not found!");
+
+    if (order_status === "cancelled" && previousOrder.order_status !== "cancelled") {
+      await CheckoutService.restoreInventoryForOrder(updated);
+    }
 
     publishEvent({
       type: "order.status_changed",
