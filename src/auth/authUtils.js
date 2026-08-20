@@ -62,7 +62,13 @@ const authentication = asyncHandler(async (req, res, next) => {
     req.user = decodeUser;
     return next();
   } catch (error) {
-    throw error;
+    if (error instanceof AuthFailureError) throw error;
+    // JWT.verify throws a plain JsonWebTokenError/TokenExpiredError with no
+    // .status, which the global error handler defaults to 500. An invalid or
+    // expired access token is a 401, not a server error — mapping it lets the
+    // frontend's refresh-token interceptor handle it instead of surfacing a
+    // raw 500 in the console.
+    throw new AuthFailureError("Invalid or expired access token");
   }
 });
 
