@@ -13,6 +13,8 @@ const {
   getAllUsers,
   getUserById,
   updateUserStatusById,
+  changePassword,
+  updateProfile,
 } = require("../services/user.service");
 const { publishEvent } = require("../services/eventBus.service");
 
@@ -190,6 +192,30 @@ class UserController {
     new SuccessResponse({
       message: "Update user status success!",
       metadata: updated,
+    }).send(res);
+  };
+
+  // PATCH /v1/api/user/password
+  changePasswordSelf = async (req, res, next) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestError("currentPassword and newPassword are required!");
+    }
+
+    await changePassword({ userId: req.user.userId, currentPassword, newPassword });
+
+    new SuccessResponse({
+      message: "Password updated successfully!",
+    }).send(res);
+  };
+
+  // PATCH /v1/api/user/me
+  updateProfileSelf = async (req, res, next) => {
+    const updated = await updateProfile({ userId: req.user.userId, payload: req.body });
+
+    new SuccessResponse({
+      message: "Profile updated successfully!",
+      metadata: { user: updated },
     }).send(res);
   };
 }

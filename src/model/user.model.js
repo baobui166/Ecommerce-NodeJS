@@ -20,7 +20,7 @@ const userSchema = new Schema(
     },
     user_emailVerified: { type: Boolean, default: false },
     user_phone: { type: String, default: "" },
-    user_sex: { type: String, enum: ["Male", "Female"], default: "Male" },
+    user_sex: { type: String, enum: ["Male", "Female", "Other"], default: "Male" },
     user_avatar: { type: String, default: "" },
     user_date_of_birth: { type: Date, default: null },
     user_role: { type: Schema.Types.ObjectId, ref: "Role" },

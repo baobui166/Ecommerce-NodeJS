@@ -22,6 +22,10 @@ const RoleShop = {
   EDITOR: "0001",
 };
 
+// Strips accidental leading/trailing whitespace so the same password typed
+// twice hashes/compares identically.
+const sanitizePassword = (password) => String(password || "").trim();
+
 class AccessService {
   // LOGIN
   /* 
@@ -31,6 +35,7 @@ class AccessService {
   step 4: get data in return logins
   */
   static login = async ({ email, password, refreshToken = null }) => {
+    password = sanitizePassword(password);
     //1
     const foundShop = await findEmail({ email });
     if (!foundShop) {
@@ -70,6 +75,7 @@ class AccessService {
   // REGISTER
 
   static signup = async ({ name, email, password }) => {
+    password = sanitizePassword(password);
     //step 1: check email exists??
 
     const holderShop = await shopModel.findOne({ email }).lean();
@@ -136,6 +142,7 @@ class AccessService {
   */
 
   static adminLogin = async ({ email, password }) => {
+    password = sanitizePassword(password);
     //1
     const foundShop = await findEmail({ email });
     if (!foundShop) {

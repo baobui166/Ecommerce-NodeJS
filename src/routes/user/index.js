@@ -18,6 +18,15 @@ router.post("/verify/confirm", verifyLimiter, asyncHandler(userController.confir
 router.post("/new_user", asyncHandler(userController.newUser));
 router.get("/new_user", asyncHandler(userController.checkLoginEmailToken));
 
+// Self-service routes (require authentication, act on the caller's own account)
+router.patch("/me", authentication, asyncHandler(userController.updateProfileSelf));
+router.patch(
+  "/password",
+  authentication,
+  authLimiter,
+  asyncHandler(userController.changePasswordSelf),
+);
+
 // Admin routes (require authentication)
 router.get("/", authentication, requireAdmin, asyncHandler(userController.getAllUsers));
 router.get(

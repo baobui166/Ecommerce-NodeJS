@@ -13,8 +13,10 @@ const { checkEmailToken } = require("./otp.service");
 const KeyTokenService = require("./ketToken.service");
 const shopModel = require("../model/shop.model");
 const { createTokenPair } = require("../auth/authUtils");
-const { getInfoData } = require("../utils");
+const { getInfoData, removeUndefinedObject } = require("../utils");
 const { parsePagination, buildPagination } = require("../utils/pagination");
+
+const MIN_PASSWORD_LENGTH = 6;
 
 const USER_PUBLIC_FIELDS = [
   "_id",
@@ -49,6 +51,10 @@ const validateEmail = (email) => {
 
   return normalizedEmail;
 };
+
+// Strips accidental leading/trailing whitespace (copy-paste, stray spacebar
+// hit) so the same password typed twice hashes/compares identically.
+const sanitizePassword = (password) => String(password || "").trim();
 
 const getAllowedGoogleClientIds = () =>
   String(process.env.GOOGLE_CLIENT_ID || "")
@@ -137,6 +143,7 @@ const findEmailWithLogin = async ({ email }) => {
 
 const createNewUserV2 = async ({ email, password }) => {
   email = validateEmail(email);
+  password = sanitizePassword(password);
 
   // 1. Check email already exists
   const foundUser = await userModel.findOne({ user_email: email }).lean();
@@ -175,6 +182,7 @@ const createNewUserV2 = async ({ email, password }) => {
 // V2: Login user with email + password (no OTP)
 const loginUserV2 = async ({ email, password }) => {
   email = validateEmail(email);
+  password = sanitizePassword(password);
 
   // 1. Find user by email
   const foundUser = await userModel.findOne({ user_email: email }).lean();
@@ -385,6 +393,65 @@ const updateUserStatusById = async (userId, status) => {
   return updatedUser;
 };
 
+const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  currentPassword = sanitizePassword(currentPassword);
+  newPassword = sanitizePassword(newPassword);
+
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new BadRequestError(
+      `New password must be at least ${MIN_PASSWORD_LENGTH} characters!`,
+    );
+  }
+
+  const user = await userModel.findById(userId);
+  if (!user) throw new NotFoundError("Account not found!");
+
+  if (!user.user_password) {
+    throw new AuthFailureError("This account signs in with Google and has no password to change!");
+  }
+
+  const match = await bcrypt.compare(currentPassword, user.user_password);
+  if (!match) {
+    throw new AuthFailureError("Error: Current password is incorrect!");
+  }
+
+  if (currentPassword === newPassword) {
+    throw new BadRequestError("New password must be different from the current password!");
+  }
+
+  user.user_password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  return { success: true };
+};
+
+const UPDATABLE_PROFILE_FIELDS = ["user_name", "user_phone", "user_sex", "user_date_of_birth", "user_avatar"];
+
+const updateProfile = async ({ userId, payload = {} }) => {
+  const update = removeUndefinedObject(
+    UPDATABLE_PROFILE_FIELDS.reduce((acc, field) => {
+      acc[field] = payload[field];
+      return acc;
+    }, {}),
+  );
+
+  if (typeof update.user_name === "string") {
+    update.user_name = update.user_name.trim();
+    if (!update.user_name) throw new BadRequestError("Full name cannot be empty!");
+  }
+  if (typeof update.user_phone === "string") {
+    update.user_phone = update.user_phone.trim();
+  }
+
+  const updatedUser = await userModel
+    .findByIdAndUpdate(userId, update, { new: true, runValidators: true })
+    .lean();
+
+  if (!updatedUser) throw new NotFoundError("Account not found!");
+
+  return getPublicUser(updatedUser);
+};
+
 module.exports = {
   newUser,
   checkLoginEmailToken,
@@ -396,4 +463,6 @@ module.exports = {
   getAllUsers,
   getUserById,
   updateUserStatusById,
+  changePassword,
+  updateProfile,
 };
