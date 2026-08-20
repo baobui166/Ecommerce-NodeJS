@@ -43,7 +43,14 @@ const getSettings = async ({ shopId }) => {
 };
 
 const getPublicSettings = async () => {
-  const shop = await shopModel.findOne({}).lean();
+  // Site-wide settings (shipping fees, free-shipping threshold, etc.) come
+  // from the platform's admin shop specifically — findOne({}) previously
+  // picked whatever shop document Mongo happened to return first, which is
+  // unstable once more than one shop account exists and made settings
+  // changes in the admin UI appear to do nothing.
+  const shop =
+    (await shopModel.findOne({ roles: "ADMIN" }).lean()) ||
+    (await shopModel.findOne({}).lean());
   const settings = defaultSettings(shop || {});
 
   return {
