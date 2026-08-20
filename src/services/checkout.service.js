@@ -137,6 +137,23 @@ const restoreProductInventory = async ({ orderItems, session }) => {
   }
 };
 
+// Releases the usage slot(s) recordDiscountUsage consumed for this order, so
+// a cancelled order doesn't permanently count against the code's limits.
+const releaseDiscountUsageForOrder = async (order) => {
+  if (!order) return;
+
+  for (const shopOrder of order.order_products || []) {
+    const discountEntry = shopOrder.shop_discounts?.[0];
+    if (!discountEntry?.codeId) continue;
+
+    await DiscountService.releaseDiscountUsage({
+      codeId: discountEntry.codeId,
+      shopId: shopOrder.shopId,
+      userId: String(order.order_userId),
+    }).catch(() => {});
+  }
+};
+
 class CheckoutService {
   /*
 	  {
@@ -281,6 +298,18 @@ class CheckoutService {
         session,
       });
 
+      for (const shopOrder of shop_order_ids_new) {
+        const discountEntry = shopOrder.shop_discounts?.[0];
+        if (discountEntry?.codeId) {
+          await DiscountService.recordDiscountUsage({
+            codeId: discountEntry.codeId,
+            shopId: shopOrder.shopId,
+            userId,
+            session,
+          });
+        }
+      }
+
       const orderPayload = {
         order_userId: userId,
         order_shopId: shop_order_ids_new[0]?.shopId,
@@ -388,6 +417,7 @@ class CheckoutService {
       // always a fresh cancellation — safe to restore unconditionally.
       if (updated.order_status === "cancelled") {
         await restoreProductInventory({ orderItems: foundOrder.order_products || [] });
+        await releaseDiscountUsageForOrder(foundOrder);
       }
 
       publishEvent({
@@ -413,6 +443,7 @@ class CheckoutService {
     if (updated) {
       if (status === "cancelled" && foundOrder.order_status !== "cancelled") {
         await restoreProductInventory({ orderItems: foundOrder.order_products || [] });
+        await releaseDiscountUsageForOrder(foundOrder);
       }
 
       publishEvent({
@@ -427,10 +458,12 @@ class CheckoutService {
   }
 
   // Shared by OrderController's admin status-update path so cancellations
-  // triggered from either admin surface restore stock the same way.
+  // triggered from either admin surface restore stock and discount usage
+  // the same way.
   static async restoreInventoryForOrder(order) {
     if (!order) return;
     await restoreProductInventory({ orderItems: order.order_products || [] });
+    await releaseDiscountUsageForOrder(order);
   }
 }
 

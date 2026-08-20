@@ -5,10 +5,7 @@ const { BadRequestError, NotFoundError } = require("../core/error.response");
 const { convertToObjectIdMongodb } = require("../utils");
 const { parsePagination, buildPagination } = require("../utils/pagination");
 const ProductService = require("./product.service.xxx");
-const {
-  checkDiscount,
-  checkDiscountExists, // assumed imported
-} = require("../model/repositories/discount.repo");
+const { checkDiscount } = require("../model/repositories/discount.repo");
 const discountModel = require("../model/discount.model");
 
 class DiscountService {
@@ -328,6 +325,7 @@ class DiscountService {
 
     const {
       discount_max_uses,
+      discount_uses_count,
       discount_start_date,
       discount_end_date,
       discount_min_order_value,
@@ -337,7 +335,7 @@ class DiscountService {
       discount_value,
     } = foundDiscount;
 
-    if (discount_max_uses <= 0) {
+    if (discount_max_uses > 0 && discount_uses_count >= discount_max_uses) {
       throw new NotFoundError("Discount usage limit reached!!!");
     }
 
@@ -360,11 +358,11 @@ class DiscountService {
     }
 
     if (discount_max_uses_per_users > 0) {
-      const userUseDiscount = discount_users_count.find(
-        (user) => user.userId === userId,
-      );
-      if (userUseDiscount) {
-        throw new NotFoundError("User has already used this discount!!!");
+      const userUseCount = (discount_users_count || []).filter(
+        (entry) => String(entry.userId) === String(userId),
+      ).length;
+      if (userUseCount >= discount_max_uses_per_users) {
+        throw new NotFoundError("You have already used this discount the maximum number of times!!!");
       }
     }
 
@@ -375,6 +373,38 @@ class DiscountService {
     const amount = Math.min(rawAmount, foundDiscount.discount_max_value || rawAmount, totalOrder);
 
     return { totalOrder, discount: amount, totalPrice: totalOrder - amount };
+  }
+
+  // Called once an order using this code is actually placed - getDiscountAmount
+  // only previews the discount, it never persists usage on its own.
+  static async recordDiscountUsage({ codeId, shopId, userId, session }) {
+    await discountModel.updateOne(
+      {
+        discount_code: codeId,
+        discount_shopId: convertToObjectIdMongodb(shopId),
+      },
+      {
+        $inc: { discount_uses_count: 1 },
+        $push: { discount_users_count: { userId, usedAt: new Date() } },
+      },
+      session ? { session } : undefined,
+    );
+  }
+
+  // Undoes recordDiscountUsage when the order that consumed this usage is
+  // cancelled, so the slot becomes available again.
+  static async releaseDiscountUsage({ codeId, shopId, userId }) {
+    await discountModel.updateOne(
+      {
+        discount_code: codeId,
+        discount_shopId: convertToObjectIdMongodb(shopId),
+        discount_uses_count: { $gt: 0 },
+      },
+      {
+        $inc: { discount_uses_count: -1 },
+        $pull: { discount_users_count: { userId } },
+      },
+    );
   }
 
   static async deleteDiscountCode({ shopId, codeId }) {
@@ -461,29 +491,6 @@ class DiscountService {
     return deleted;
   }
 
-  static async cancelDiscountCode({ codeId, shopId, userId }) {
-    const foundDiscount = await checkDiscountExists({
-      model: discountModel,
-      filter: {
-        discount_shopId: convertToObjectIdMongodb(shopId),
-        discount_code: codeId,
-      },
-    });
-
-    if (!foundDiscount) throw new NotFoundError("Discount not exist!!!");
-
-    const result = await discountModel.findByIdAndUpdate(foundDiscount._id, {
-      $pull: {
-        discount_users_count: { userId },
-      },
-      $inc: {
-        discount_max_uses: 1,
-        discount_uses_count: -1,
-      },
-    });
-
-    return result;
-  }
 }
 
 module.exports = DiscountService;
