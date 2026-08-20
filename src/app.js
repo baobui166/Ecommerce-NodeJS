@@ -28,18 +28,44 @@ const redactSensitiveData = (value) => {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
-      SENSITIVE_KEYS.has(key.toLowerCase()) ? "[REDACTED]" : redactSensitiveData(item),
+      SENSITIVE_KEYS.has(key.toLowerCase())
+        ? "[REDACTED]"
+        : redactSensitiveData(item),
     ]),
   );
 };
 
 //init middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,  // cho phép gửi/nhận cookies
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'x-client-id', 'x-refresh-token', 'x-auth-kind']
-}));
+// FRONTEND_URL may hold a single origin or a comma-separated list (useful in dev,
+// since Vite silently jumps to the next port when its default one is taken).
+const allowedOrigins = (
+  process.env.FRONTEND_URL || "http://localhost:5173,http://localhost:5174"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser clients (curl/Postman) which send no Origin header.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true, // cho phép gửi/nhận cookies
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "x-api-key",
+      "Authorization",
+      "x-client-id",
+      "x-refresh-token",
+      "x-auth-kind",
+    ],
+  }),
+);
 app.use(cookieParser());
 if (process.env.NODE_ENV !== "test") {
   app.use(morgan("dev"));
@@ -72,7 +98,9 @@ if (process.env.NODE_ENV !== "test") {
   overLoad();
   const initRedis = require("./dbs/init.redis");
   initRedis.initRedis().catch((error) => {
-    myLogger.error(`Redis unavailable, continuing without cache/locks: ${error.message}`);
+    myLogger.error(
+      `Redis unavailable, continuing without cache/locks: ${error.message}`,
+    );
   });
 }
 //init route
