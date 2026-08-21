@@ -377,33 +377,117 @@ class DiscountService {
 
   // Called once an order using this code is actually placed - getDiscountAmount
   // only previews the discount, it never persists usage on its own.
+  //
+  // The $expr guard re-checks both limits against the current document state
+  // as part of the same atomic update, so concurrent callers can't both pass
+  // a stale limit check the way two separate read-then-write steps would.
   static async recordDiscountUsage({ codeId, shopId, userId, session }) {
-    await discountModel.updateOne(
+    const updated = await discountModel.findOneAndUpdate(
       {
         discount_code: codeId,
         discount_shopId: convertToObjectIdMongodb(shopId),
+        $expr: {
+          $and: [
+            {
+              $or: [
+                { $eq: ["$discount_max_uses", 0] },
+                { $lt: ["$discount_uses_count", "$discount_max_uses"] },
+              ],
+            },
+            {
+              $or: [
+                { $eq: ["$discount_max_uses_per_users", 0] },
+                {
+                  $lt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$discount_users_count",
+                          as: "entry",
+                          cond: { $eq: [{ $toString: "$$entry.userId" }, String(userId)] },
+                        },
+                      },
+                    },
+                    "$discount_max_uses_per_users",
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       },
       {
         $inc: { discount_uses_count: 1 },
         $push: { discount_users_count: { userId, usedAt: new Date() } },
       },
-      session ? { session } : undefined,
+      { new: true, ...(session ? { session } : {}) },
     );
+
+    if (!updated) {
+      throw new BadRequestError("Discount usage limit reached!!!", 400);
+    }
+
+    return updated;
   }
 
   // Undoes recordDiscountUsage when the order that consumed this usage is
   // cancelled, so the slot becomes available again.
-  static async releaseDiscountUsage({ codeId, shopId, userId }) {
+  //
+  // Uses a pipeline update so the array edit is atomic and removes only the
+  // single entry matching this user (a plain $pull would delete every entry
+  // for that user, desyncing discount_users_count from discount_uses_count
+  // when the same user has more than one active order on the code).
+  static async releaseDiscountUsage({ codeId, shopId, userId, session }) {
     await discountModel.updateOne(
       {
         discount_code: codeId,
         discount_shopId: convertToObjectIdMongodb(shopId),
         discount_uses_count: { $gt: 0 },
       },
-      {
-        $inc: { discount_uses_count: -1 },
-        $pull: { discount_users_count: { userId } },
-      },
+      [
+        {
+          $set: {
+            discount_uses_count: { $subtract: ["$discount_uses_count", 1] },
+            discount_users_count: {
+              $let: {
+                vars: {
+                  idx: {
+                    $indexOfArray: [
+                      {
+                        $map: {
+                          input: "$discount_users_count",
+                          as: "entry",
+                          in: { $toString: "$$entry.userId" },
+                        },
+                      },
+                      String(userId),
+                    ],
+                  },
+                },
+                in: {
+                  $cond: [
+                    { $eq: ["$$idx", -1] },
+                    "$discount_users_count",
+                    {
+                      $concatArrays: [
+                        { $slice: ["$discount_users_count", "$$idx"] },
+                        {
+                          $slice: [
+                            "$discount_users_count",
+                            { $add: ["$$idx", 1] },
+                            { $size: "$discount_users_count" },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ],
+      session ? { session } : undefined,
     );
   }
 

@@ -17,6 +17,7 @@ const DiscountService = require("./discount.service");
 const { publishEvent } = require("./eventBus.service");
 const ShopService = require("./shop.service");
 const { notifyLowStockIfNeeded } = require("./stockAlert.service");
+const myLogger = require("../loggers/myLogger.log");
 
 const toSafeNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -137,20 +138,35 @@ const restoreProductInventory = async ({ orderItems, session }) => {
   }
 };
 
+// Every shop_order currently carries at most one discount entry.
+const getDiscountEntry = (shopOrder) => shopOrder.shop_discounts?.[0];
+
 // Releases the usage slot(s) recordDiscountUsage consumed for this order, so
 // a cancelled order doesn't permanently count against the code's limits.
 const releaseDiscountUsageForOrder = async (order) => {
   if (!order) return;
 
   for (const shopOrder of order.order_products || []) {
-    const discountEntry = shopOrder.shop_discounts?.[0];
+    const discountEntry = getDiscountEntry(shopOrder);
     if (!discountEntry?.codeId) continue;
 
-    await DiscountService.releaseDiscountUsage({
-      codeId: discountEntry.codeId,
-      shopId: shopOrder.shopId,
-      userId: String(order.order_userId),
-    }).catch(() => {});
+    try {
+      await DiscountService.releaseDiscountUsage({
+        codeId: discountEntry.codeId,
+        shopId: shopOrder.shopId,
+        userId: String(order.order_userId),
+      });
+    } catch (error) {
+      myLogger.error("Failed to release discount usage", [
+        "checkout-service",
+        { requestId: "system" },
+        {
+          orderId: String(order._id),
+          codeId: discountEntry.codeId,
+          message: error.message,
+        },
+      ]);
+    }
   }
 };
 
@@ -298,17 +314,19 @@ class CheckoutService {
         session,
       });
 
-      for (const shopOrder of shop_order_ids_new) {
-        const discountEntry = shopOrder.shop_discounts?.[0];
-        if (discountEntry?.codeId) {
-          await DiscountService.recordDiscountUsage({
+      await Promise.all(
+        shop_order_ids_new.map((shopOrder) => {
+          const discountEntry = getDiscountEntry(shopOrder);
+          if (!discountEntry?.codeId) return null;
+
+          return DiscountService.recordDiscountUsage({
             codeId: discountEntry.codeId,
             shopId: shopOrder.shopId,
             userId,
             session,
           });
-        }
-      }
+        }),
+      );
 
       const orderPayload = {
         order_userId: userId,
