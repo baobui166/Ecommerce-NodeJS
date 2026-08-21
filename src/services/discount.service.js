@@ -4,7 +4,7 @@ const { Types } = require("mongoose");
 const { BadRequestError, NotFoundError } = require("../core/error.response");
 const { convertToObjectIdMongodb } = require("../utils");
 const { parsePagination, buildPagination } = require("../utils/pagination");
-const ProductService = require("./product.service.xxx");
+const ProductService = require("./product.service");
 const { checkDiscount } = require("../model/repositories/discount.repo");
 const discountModel = require("../model/discount.model");
 

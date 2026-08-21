@@ -1,7 +1,7 @@
 "use strict";
 
 const { BadRequestError } = require("../core/error.response");
-const ProductService = require("./product.service.xxx");
+const ProductService = require("./product.service");
 
 const PRODUCT_TYPES = ["Electronics", "Clothing", "Furniture"];
 const DEFAULT_MAX_PRODUCTS = 8;
