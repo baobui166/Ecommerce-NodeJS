@@ -42,13 +42,6 @@ class UserController {
     new SuccessResponse(responsed).send(res);
   };
 
-  userUpload = async (req, res, next) => {
-    new SuccessResponse({
-      message: "Upload file success!!!!",
-      metadata: await uploadImageFromUrl(),
-    }).send(res);
-  };
-
   checkLoginEmailToken = async (req, res, next) => {
     const { token } = req.query;
     new SuccessResponse({
@@ -78,13 +71,6 @@ class UserController {
     new SuccessResponse({
       message: "Account verified successfully",
       metadata: await confirmAccountVerification({ token }),
-    }).send(res);
-  };
-
-  upLoadImageFromUrl = async (req, res, next) => {
-    new SuccessResponse({
-      message: "Upload file success!!!!",
-      metadata: await uploadImageFromUrl(),
     }).send(res);
   };
 
